@@ -2,6 +2,25 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { CICLOS, PLATOS, AVATARS, getDiasCiclo } from './data.js'
 import { getProfiles, upsertProfile, deleteProfile, getUserData, saveUserData, getDieta, saveDieta } from './db.js'
 
+// ─── ACTIVIDADES EXTRA ───────────────────────────────────────────────────────
+
+const ACTIVIDADES_EXTRA = [
+  { id: 'correr',    nombre: 'Correr',     icon: '🏃', met: 9.0,  km: true  },
+  { id: 'bici',      nombre: 'Bici',       icon: '🚴', met: 7.0,  km: true  },
+  { id: 'padel',     nombre: 'Pádel',      icon: '🎾', met: 7.0,  km: false },
+  { id: 'eliptica',  nombre: 'Elíptica',   icon: '⚡', met: 5.5,  km: false },
+  { id: 'nadar',     nombre: 'Nadar',      icon: '🏊', met: 7.0,  km: false },
+  { id: 'caminar',   nombre: 'Caminar',    icon: '🚶', met: 3.5,  km: true  },
+  { id: 'futbol',    nombre: 'Fútbol',     icon: '⚽', met: 7.0,  km: false },
+  { id: 'badminton', nombre: 'Bádminton',  icon: '🏸', met: 5.5,  km: false },
+  { id: 'boxeo',     nombre: 'Boxeo',      icon: '🥊', met: 7.8,  km: false },
+  { id: 'yoga',      nombre: 'Yoga',       icon: '🧘', met: 2.5,  km: false },
+]
+
+function calcKcalActividad(act, minutos, pesoKg = 75) {
+  return Math.round(act.met * pesoKg * (minutos / 60))
+}
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function getWeekKey(d = new Date()) {
@@ -221,6 +240,8 @@ export default function App() {
   const [dietaCalc, setDietaCalc] = useState(null)
   const [platoAbierto, setPlatoAbierto] = useState(null)
   const [mostrarCiclos, setMostrarCiclos] = useState(false)
+  const [actividadModal, setActividadModal] = useState(false)
+  const [actForm, setActForm] = useState({ tipo: 'correr', minutos: '', km: '' })
   const saveTimer = useRef(null)
   const dietaTimer = useRef(null)
 
@@ -327,6 +348,34 @@ export default function App() {
     const c = Math.round((kcal - p * 4 - g * 9) / 4)
     setDietaCalc({ tdee, kcal, p, c, g })
   }
+
+  // ── Actividades extra ──
+  const hoyStr = new Date().toLocaleDateString('es-ES')
+  const actividades = ud.actividades || []
+  const actividadesHoy = actividades.filter(a => a.fecha === hoyStr)
+  const pesoRef = histPeso.at(-1)?.peso || 75
+
+  function guardarActividad() {
+    const def = ACTIVIDADES_EXTRA.find(a => a.id === actForm.tipo)
+    if (!def || !actForm.minutos) return
+    const kcal = calcKcalActividad(def, Number(actForm.minutos), pesoRef)
+    const nueva = { fecha: hoyStr, tipo: def.id, nombre: def.nombre, icon: def.icon, minutos: Number(actForm.minutos), km: actForm.km ? Number(actForm.km) : null, kcal }
+    setUd({ ...ud, actividades: [...actividades, nueva] })
+    setActForm({ tipo: 'correr', minutos: '', km: '' })
+    setActividadModal(false)
+  }
+
+  function borrarActividad(idx) {
+    const fecha = actividadesHoy[idx].fecha
+    let ci = -1
+    const nuevas = actividades.filter(a => {
+      if (a.fecha === fecha) { ci++; return ci !== idx }
+      return true
+    })
+    setUd({ ...ud, actividades: nuevas })
+  }
+
+  const kcalTotalHoy = actividadesHoy.reduce((s, a) => s + a.kcal, 0)
 
   // ── Ciclo ──
   function semanasEnCiclo() {
@@ -483,6 +532,38 @@ export default function App() {
                 </div>
               )
             })()}
+
+            {/* Actividad extra del día */}
+            <div style={{ ...S.card, marginBottom: 12 }}>
+              <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#1c1c1e' }}>🔥 Actividad extra</div>
+                  {kcalTotalHoy > 0
+                    ? <div style={{ fontSize: 12, color: '#f97316', marginTop: 2, fontWeight: 600 }}>{kcalTotalHoy} kcal quemadas hoy</div>
+                    : <div style={{ fontSize: 12, color: '#8e8e93', marginTop: 2 }}>Elíptica, pádel, correr…</div>}
+                </div>
+                <button onClick={() => setActividadModal(true)}
+                  style={{ padding: '8px 14px', borderRadius: 12, background: '#f97316', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>+ Añadir</button>
+              </div>
+              {actividadesHoy.length > 0 && (
+                <div style={{ borderTop: '1px solid #f2f2f7' }}>
+                  {actividadesHoy.map((a, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: i < actividadesHoy.length - 1 ? '1px solid #f2f2f7' : 'none' }}>
+                      <span style={{ fontSize: 22 }}>{a.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{a.nombre}</div>
+                        <div style={{ fontSize: 12, color: '#8e8e93', marginTop: 1 }}>
+                          {a.minutos} min{a.km ? ` · ${a.km} km` : ''}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#f97316' }}>{a.kcal} kcal</span>
+                      <button onClick={() => borrarActividad(i)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#c7c7cc', padding: '4px 6px' }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Ejercicios */}
             {dia.ejercicios.map((ej, idx) => {
@@ -790,6 +871,73 @@ export default function App() {
           </>
         )}
       </div>
+
+      {/* Modal actividad extra */}
+      {actividadModal && (() => {
+        const def = ACTIVIDADES_EXTRA.find(a => a.id === actForm.tipo)
+        const preview = def && actForm.minutos
+          ? calcKcalActividad(def, Number(actForm.minutos), pesoRef)
+          : null
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }}
+            onClick={() => setActividadModal(false)}>
+            <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 430, margin: '0 auto', padding: 20, paddingBottom: 36 }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 16 }}>🔥 Añadir actividad</div>
+
+              {/* Selector de actividad */}
+              <div style={S.label}>Tipo de actividad</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                {ACTIVIDADES_EXTRA.map(a => (
+                  <button key={a.id} onClick={() => setActForm(f => ({ ...f, tipo: a.id, km: '' }))}
+                    style={{ padding: '8px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, background: actForm.tipo === a.id ? '#f97316' : '#f5f5f7', color: actForm.tipo === a.id ? '#fff' : '#3c3c43', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span>{a.icon}</span><span>{a.nombre}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tiempo y distancia */}
+              <div style={{ display: 'grid', gridTemplateColumns: def?.km ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <div style={S.label}>Duración (minutos)</div>
+                  <div style={{ position: 'relative' }}>
+                    <input type="number" inputMode="numeric" placeholder="30" value={actForm.minutos}
+                      onChange={e => setActForm(f => ({ ...f, minutos: e.target.value }))}
+                      style={{ ...S.input }} />
+                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#8e8e93' }}>min</span>
+                  </div>
+                </div>
+                {def?.km && (
+                  <div>
+                    <div style={S.label}>Distancia (opcional)</div>
+                    <div style={{ position: 'relative' }}>
+                      <input type="number" inputMode="decimal" placeholder="5.0" value={actForm.km}
+                        onChange={e => setActForm(f => ({ ...f, km: e.target.value }))}
+                        style={{ ...S.input }} />
+                      <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#8e8e93' }}>km</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Preview kcal */}
+              {preview && (
+                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: '#92400e' }}>Calorías estimadas</span>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: '#f97316' }}>{preview} kcal</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setActividadModal(false)}
+                  style={{ flex: 1, padding: 13, borderRadius: 12, background: '#f5f5f7', color: '#8e8e93', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+                <button onClick={guardarActividad} disabled={!actForm.minutos}
+                  style={{ flex: 2, ...S.btnPrimary('#f97316'), borderRadius: 12, opacity: actForm.minutos ? 1 : 0.4 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* NAV */}
       <div style={S.nav}>
