@@ -152,21 +152,59 @@ const DIAS_BASE = [
   },
 ]
 
-// Genera los días ajustados al ciclo actual
-export function getDiasCiclo(cicloId) {
+// Ajustes de series/reps según objetivo y nivel del usuario
+const USER_MOD = {
+  perder: {
+    principiante: { seriesMod: -1, repsOverride: '12–15', tipExtra: 'Descanso corto 45-60s para quemar más calorías.' },
+    intermedio:   { seriesMod: 0,  repsOverride: '10–15', tipExtra: 'Supersets o descanso de 60s para mantener ritmo cardíaco alto.' },
+    avanzado:     { seriesMod: 0,  repsOverride: '10–15', tipExtra: 'Drop sets y tempo 3-0-1 para máxima densidad metabólica.' },
+  },
+  ganar: {
+    principiante: { seriesMod: -1, repsOverride: '8–12',  tipExtra: 'Progresión doble: cuando completes todas las reps, sube el peso.' },
+    intermedio:   { seriesMod: 0,  repsOverride: '8–12',  tipExtra: 'RIR 2-3. Último set hasta el fallo técnico.' },
+    avanzado:     { seriesMod: +1, repsOverride: '6–10',  tipExtra: 'RIR 1. Añade técnicas de intensidad: rest-pause o myo-reps.' },
+  },
+  fuerza: {
+    principiante: { seriesMod: 0,  repsOverride: '5–8',   tipExtra: 'Foco en técnica. Descanso 2-3 min entre series.' },
+    intermedio:   { seriesMod: +1, repsOverride: '4–6',   tipExtra: 'Aumenta carga cada sesión. Descanso completo 3 min.' },
+    avanzado:     { seriesMod: +1, repsOverride: '3–5',   tipExtra: 'Periodización ondulante: varía 3, 4 y 5 reps semanalmente.' },
+  },
+  recomposicion: {
+    principiante: { seriesMod: -1, repsOverride: '10–15', tipExtra: 'Déficit calórico leve. Mantén proteína alta ≥2g/kg.' },
+    intermedio:   { seriesMod: 0,  repsOverride: '8–12',  tipExtra: 'Altterna días de mayor y menor volumen para gestionar fatiga.' },
+    avanzado:     { seriesMod: 0,  repsOverride: '6–12',  tipExtra: 'Bloques de 3-4 semanas: semana de volumen y semana de fuerza.' },
+  },
+}
+
+// Genera los días ajustados al ciclo actual y al perfil del usuario
+export function getDiasCiclo(cicloId, objetivo = 'recomposicion', nivel = 'intermedio') {
   const mod = MOD[cicloId]
+  const userMod = USER_MOD[objetivo]?.[nivel] || { seriesMod: 0, repsOverride: null, tipExtra: '' }
+  // En deload no aplicamos ajustes de usuario (ya está sobrecargado de señal de recuperación)
+  const isDeload = cicloId === 'deload'
+
   return DIAS_BASE.map(dia => ({
     ...dia,
     color: CICLOS.find(c => c.id === cicloId)?.color || dia.color,
     ejercicios: dia.ejercicios.map(ej => {
       const altCiclo = ALT_CICLO[ej.id]?.[cicloId]
-      const seriesAjustadas = Math.max(2, ej.series + mod.seriesMod)
-      let repsAjustadas = mod.repsMod || ej.reps
-      if (mod.repsMod === 'deload') repsAjustadas = ej.reps + ' (50% peso)'
+      const seriesMod = isDeload ? mod.seriesMod : mod.seriesMod + userMod.seriesMod
+      const seriesAjustadas = Math.max(2, ej.series + seriesMod)
+      let repsAjustadas
+      if (isDeload) {
+        repsAjustadas = ej.reps + ' (50% peso)'
+      } else if (userMod.repsOverride && mod.repsMod === '') {
+        repsAjustadas = userMod.repsOverride
+      } else {
+        repsAjustadas = mod.repsMod || ej.reps
+      }
+      const tipBase = altCiclo ? altCiclo.tip : ej.tip
+      const tipFinal = (!isDeload && userMod.tipExtra) ? `${tipBase} · ${userMod.tipExtra}` : tipBase
       return {
-        ...(altCiclo ? { ...ej, nombre: altCiclo.nombre, gif: altCiclo.gif, tip: altCiclo.tip } : ej),
+        ...(altCiclo ? { ...ej, nombre: altCiclo.nombre, gif: altCiclo.gif } : ej),
         series: seriesAjustadas,
         reps: repsAjustadas,
+        tip: tipFinal,
       }
     })
   }))

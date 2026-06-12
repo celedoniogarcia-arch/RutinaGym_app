@@ -266,6 +266,9 @@ function generarAlertas({ semanasCiclo, params, volumenMuscular, vol, registros,
           alertas.push({
             tipo: 'plateau',
             prioridad: 'media',
+            ejId: ej.id,
+            ejNombre: ej.nombre,
+            ejMusculo: ej.musculo,
             titulo: `⚠️ Estancamiento: ${ej.nombre}`,
             desc: `Sin progreso en las últimas 3 sesiones. Considera cambiar el ángulo, el ejercicio alternativo, o añadir una técnica de intensidad.`,
           })
@@ -280,6 +283,7 @@ function generarAlertas({ semanasCiclo, params, volumenMuscular, vol, registros,
       alertas.push({
         tipo: 'volumen_bajo',
         prioridad: 'baja',
+        musculo,
         titulo: `📉 Poco volumen: ${musculo}`,
         desc: `Solo ${series} series/sem (mínimo efectivo: ${vol.mev}). Añade 1-2 series o un ejercicio extra.`,
       })

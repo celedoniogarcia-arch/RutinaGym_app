@@ -306,7 +306,7 @@ export default function App() {
   const user = users.find(u => u.id === userId)
   const cicloActual = user?.cicloActual || 'hiper'
   const cicloInfo = CICLOS.find(c => c.id === cicloActual) || CICLOS[0]
-  const DIAS = getDiasCiclo(cicloActual)
+  const DIAS = getDiasCiclo(cicloActual, user?.objetivo || 'recomposicion', user?.nivel || 'intermedio')
   const esFinde = diaIdx >= 5
   const dia = DIAS[Math.min(diaIdx, 4)]
 
@@ -436,6 +436,26 @@ export default function App() {
     const nuevas = { ...alternativasActivas }
     delete nuevas[ejId]
     setUd({ ...ud, alternativasActivas: nuevas })
+  }
+
+  // ── Aplicar correcciones desde alertas ───────────────────────────────────
+  function aplicarCorreccionAlerta(alerta) {
+    if (alerta.tipo === 'deload') {
+      updateUser({ cicloActual: 'deload', cicloSemanaInicio: getWeekKey() })
+    } else if (alerta.tipo === 'plateau' && alerta.ejId) {
+      // Asignar una alternativa fitcron aleatoria del mismo grupo muscular
+      const grupo = matchMusculo(alerta.ejMusculo || '')
+      const candidatos = fitcronEjercicios.filter(e => e.musculo === grupo && e.gif)
+      if (candidatos.length > 0) {
+        const alt = candidatos[Math.floor(Math.random() * candidatos.length)]
+        const nuevas = { ...alternativasActivas, [alerta.ejId]: alt }
+        setUd({ ...ud, alternativasActivas: nuevas })
+      }
+    } else if (alerta.tipo === 'volumen_bajo' && alerta.musculo) {
+      // Marcar +1 serie para ese grupo muscular (almacenado en ud.seriesExtra)
+      const extra = { ...(ud.seriesExtra || {}), [alerta.musculo]: ((ud.seriesExtra || {})[alerta.musculo] || 0) + 1 }
+      setUd({ ...ud, seriesExtra: extra })
+    }
   }
 
   // ── Motor de reglas (después de semanasCiclo) ─────────────────────────────
@@ -671,7 +691,7 @@ export default function App() {
                   {open && (
                     <div style={{ borderTop: '1px solid #f2f2f7', padding: '14px 16px' }}>
                       {/* GIF — contain para no recortar la imagen */}
-                      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12, background: '#f5f5f7', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 180, position: 'relative' }}>
+                      <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 12, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 180, position: 'relative' }}>
                         <img src={ejMostrado.gif} alt={ejMostrado.nombre} referrerPolicy="no-referrer"
                           style={{ width: '100%', maxHeight: 280, objectFit: 'contain', display: 'block' }}
                           onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }} />
@@ -1016,10 +1036,17 @@ export default function App() {
                       {alertas.map((a, i) => {
                         const color = a.prioridad === 'alta' ? '#ef4444' : a.prioridad === 'media' ? '#f97316' : '#6366f1'
                         const bg = a.prioridad === 'alta' ? '#fef2f2' : a.prioridad === 'media' ? '#fff7ed' : '#eef2ff'
+                        const btnLabel = a.tipo === 'deload' ? '⚡ Activar deload ahora' : a.tipo === 'plateau' ? '🔄 Cambiar ejercicio automáticamente' : a.tipo === 'volumen_bajo' ? '➕ Añadir serie a este músculo' : null
                         return (
                           <div key={i} style={{ padding: '12px 16px', borderTop: '1px solid #f2f2f7', background: bg }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color }}>{a.titulo}</div>
                             <div style={{ fontSize: 12, color: '#3c3c43', marginTop: 4, lineHeight: 1.4 }}>{a.desc}</div>
+                            {btnLabel && (
+                              <button onClick={() => aplicarCorreccionAlerta(a)}
+                                style={{ marginTop: 8, padding: '6px 12px', borderRadius: 8, border: `1px solid ${color}`, background: 'transparent', color, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                {btnLabel}
+                              </button>
+                            )}
                           </div>
                         )
                       })}
