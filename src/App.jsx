@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { CICLOS, PLATOS, AVATARS, getDiasCiclo } from './data.js'
 import { getProfiles, upsertProfile, deleteProfile, getUserData, saveUserData, getDieta, saveDieta } from './db.js'
+import { OBJETIVOS, NIVELES, generarRecomendaciones, calcularNutricionObjetivo } from './rulesEngine.js'
 
 // ─── ACTIVIDADES EXTRA ───────────────────────────────────────────────────────
 
@@ -119,14 +120,16 @@ function PantallaUsuarios({ users, loading, onSelect, onCreate, onDelete }) {
   const [creando, setCreando] = useState(false)
   const [nombre, setNombre] = useState('')
   const [avatar, setAvatar] = useState('💪')
+  const [objetivo, setObjetivo] = useState('recomposicion')
+  const [nivel, setNivel] = useState('intermedio')
   const [borrandoId, setBorrandoId] = useState(null)
   const [codigoBorrar, setCodigoBorrar] = useState('')
   const [errorCodigo, setErrorCodigo] = useState(false)
 
   function guardar() {
     if (!nombre.trim()) return
-    onCreate({ id: Date.now().toString(), nombre: nombre.trim(), avatar, cicloActual: 'hiper', cicloSemanaInicio: getWeekKey() })
-    setNombre(''); setAvatar('💪'); setCreando(false)
+    onCreate({ id: Date.now().toString(), nombre: nombre.trim(), avatar, objetivo, nivel, cicloActual: 'hiper', cicloSemanaInicio: getWeekKey() })
+    setNombre(''); setAvatar('💪'); setObjetivo('recomposicion'); setNivel('intermedio'); setCreando(false)
   }
 
   function intentarBorrar(u) {
@@ -205,9 +208,32 @@ function PantallaUsuarios({ users, loading, onSelect, onCreate, onDelete }) {
               <div style={S.label}>Nombre</div>
               <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="ej: Carlos" style={{ ...S.input, marginBottom: 16 }} />
               <div style={S.label}>Avatar</div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
                 {AVATARS.map(a => (
                   <button key={a} onClick={() => setAvatar(a)} style={{ width: 48, height: 48, borderRadius: 12, border: avatar === a ? '2px solid #6366f1' : '2px solid #e5e5ea', background: avatar === a ? '#eef2ff' : '#fff', fontSize: 24, cursor: 'pointer' }}>{a}</button>
+                ))}
+              </div>
+              <div style={S.label}>Objetivo</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {OBJETIVOS.map(o => (
+                  <button key={o.id} onClick={() => setObjetivo(o.id)}
+                    style={{ padding: '10px 14px', borderRadius: 12, border: objetivo === o.id ? '2px solid #6366f1' : '2px solid #e5e5ea', background: objetivo === o.id ? '#eef2ff' : '#fff', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>{o.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: objetivo === o.id ? '#6366f1' : '#1c1c1e' }}>{o.nombre}</div>
+                      <div style={{ fontSize: 11, color: '#8e8e93' }}>{o.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div style={S.label}>Nivel de entrenamiento</div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                {NIVELES.map(n => (
+                  <button key={n.id} onClick={() => setNivel(n.id)}
+                    style={{ flex: 1, padding: '10px 8px', borderRadius: 12, border: nivel === n.id ? '2px solid #6366f1' : '2px solid #e5e5ea', background: nivel === n.id ? '#eef2ff' : '#fff', cursor: 'pointer', textAlign: 'center' }}>
+                    <div style={{ fontSize: 18 }}>{n.icon}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: nivel === n.id ? '#6366f1' : '#1c1c1e', marginTop: 4 }}>{n.nombre}</div>
+                  </button>
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -386,6 +412,17 @@ export default function App() {
   }
   const semanasCiclo = semanasEnCiclo()
   const semanasRestantes = Math.max(0, cicloInfo.semanas - semanasCiclo)
+
+  // ── Motor de reglas (después de semanasCiclo) ─────────────────────────────
+  const reglas = generarRecomendaciones({
+    objetivo: user?.objetivo || 'recomposicion',
+    nivel: user?.nivel || 'intermedio',
+    semanasCiclo,
+    registros: ud.registros || {},
+    histPeso: ud.histPeso || [],
+    actividades: ud.actividades || [],
+    DIAS,
+  })
   const cicloCompletado = semanasCiclo >= cicloInfo.semanas
   function cambiarCiclo(id) { updateUser({ cicloActual: id, cicloSemanaInicio: getWeekKey() }); setMostrarCiclos(false); setEjAbierto(null) }
 
@@ -612,7 +649,7 @@ export default function App() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#3c3c43', marginBottom: 10 }}>
                         {ej.tipo === 'tiempo' ? 'Tiempo (seg) por serie:' : ej.tipo === 'reps' ? 'Repeticiones por serie:' : ej.tipo === 'peso_reps' ? 'Peso (kg) y reps por serie:' : 'Peso (kg) por serie:'}
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(ej.series, ej.tipo === 'peso_reps' ? 2 : 4)}, 1fr)`, gap: 8, marginBottom: 14 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(ej.series, ej.tipo === 'peso_reps' ? 2 : 4)}, 1fr)`, gap: 8, marginBottom: 10 }}>
                         {Array.from({ length: ej.series }, (_, i) => i + 1).map(s => (
                           <EjercicioInput key={s} ej={ej} serie={s}
                             valor={getValorHoy(ej.id, s)}
@@ -620,6 +657,19 @@ export default function App() {
                             ultimoValor={s === 1 ? ultimo : null} />
                         ))}
                       </div>
+
+                      {/* Sugerencia del motor de reglas */}
+                      {(() => {
+                        const sug = reglas.recomendaciones[ej.id]
+                        if (!sug || !sug.mensaje) return null
+                        const color = sug.estado === 'subir_peso' ? '#10b981' : sug.estado === 'estancado' ? '#f97316' : '#6366f1'
+                        const bg = sug.estado === 'subir_peso' ? '#f0fdf4' : sug.estado === 'estancado' ? '#fff7ed' : '#eef2ff'
+                        return (
+                          <div style={{ background: bg, borderRadius: 10, padding: '8px 12px', marginBottom: 14, fontSize: 12, color, fontWeight: 600 }}>
+                            {sug.mensaje}
+                          </div>
+                        )
+                      })()}
 
                       {ej.alternativas?.length > 0 && (
                         <>
@@ -805,6 +855,108 @@ export default function App() {
         {/* ══════════ PROGRESO ══════════ */}
         {tab === 'progreso' && (
           <>
+            {/* Panel de reglas — Análisis personalizado */}
+            {(() => {
+              const objInfo = OBJETIVOS.find(o => o.id === (user?.objetivo || 'recomposicion'))
+              const nivInfo = NIVELES.find(n => n.id === (user?.nivel || 'intermedio'))
+              const { params, vol, alertas, cicloRecomendado, volumenMuscular } = reglas
+              const cicloRec = CICLOS.find(c => c.id === cicloRecomendado?.id)
+
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  {/* Perfil de entrenamiento */}
+                  <div style={{ ...S.card, padding: 16, marginBottom: 10, background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#6366f1', marginBottom: 10 }}>🧠 Tu perfil de entrenamiento</div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <div style={{ flex: 1, background: '#fff', borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 22 }}>{objInfo?.icon}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', marginTop: 4 }}>{objInfo?.nombre}</div>
+                        <div style={{ fontSize: 10, color: '#8e8e93' }}>Objetivo</div>
+                      </div>
+                      <div style={{ flex: 1, background: '#fff', borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 22 }}>{nivInfo?.icon}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', marginTop: 4 }}>{nivInfo?.nombre}</div>
+                        <div style={{ fontSize: 10, color: '#8e8e93' }}>Nivel</div>
+                      </div>
+                      <div style={{ flex: 1, background: '#fff', borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#6366f1' }}>{params.reps}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6366f1', marginTop: 4 }}>Reps</div>
+                        <div style={{ fontSize: 10, color: '#8e8e93' }}>Rango óptimo</div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 10, background: '#fff', borderRadius: 12, padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#3c3c43', flexWrap: 'wrap', gap: 8 }}>
+                        <span>📊 <b>{params.series}</b> series/ejercicio</span>
+                        <span>💤 RIR <b>{params.rir}</b> (reps en reserva)</span>
+                        <span>🏃 <b>{params.cardioSemana}</b> cardios/sem</span>
+                        <span>⚡ Deload cada <b>{params.deloadSemanas}</b> sem</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#8e8e93', marginTop: 6 }}>Intensidad recomendada: {params.intensidad}</div>
+                    </div>
+                  </div>
+
+                  {/* Ciclo recomendado */}
+                  {cicloRecomendado && cicloRec && cicloRecomendado.id !== cicloActual && (
+                    <div style={{ ...S.card, padding: 16, marginBottom: 10, background: cicloRec.bg, border: `1px solid ${cicloRec.color}40` }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: cicloRec.color, marginBottom: 4 }}>
+                        🔄 Cambio de ciclo recomendado → {cicloRec.nombre}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#3c3c43', marginBottom: 12 }}>{cicloRecomendado.razon}</div>
+                      <button onClick={() => { updateUser({ cicloActual: cicloRec.id, cicloSemanaInicio: getWeekKey() }) }}
+                        style={{ ...S.btnPrimary(cicloRec.color), borderRadius: 12, padding: '10px 16px' }}>
+                        Cambiar a {cicloRec.nombre}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Alertas */}
+                  {alertas.length > 0 && (
+                    <div style={{ ...S.card, overflow: 'hidden', marginBottom: 10 }}>
+                      <div style={{ padding: '12px 16px 8px', fontSize: 13, fontWeight: 700, color: '#8e8e93' }}>ALERTAS DE ENTRENAMIENTO</div>
+                      {alertas.map((a, i) => {
+                        const color = a.prioridad === 'alta' ? '#ef4444' : a.prioridad === 'media' ? '#f97316' : '#6366f1'
+                        const bg = a.prioridad === 'alta' ? '#fef2f2' : a.prioridad === 'media' ? '#fff7ed' : '#eef2ff'
+                        return (
+                          <div key={i} style={{ padding: '12px 16px', borderTop: '1px solid #f2f2f7', background: bg }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color }}>{a.titulo}</div>
+                            <div style={{ fontSize: 12, color: '#3c3c43', marginTop: 4, lineHeight: 1.4 }}>{a.desc}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Volumen semanal por músculo */}
+                  {Object.keys(volumenMuscular).length > 0 && (
+                    <div style={{ ...S.card, padding: 16, marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#8e8e93', marginBottom: 12 }}>VOLUMEN SEMANAL POR MÚSCULO</div>
+                      <div style={{ fontSize: 11, color: '#8e8e93', marginBottom: 10 }}>
+                        MEV {vol.mev} · MAV {vol.mav} · MRV {vol.mrv} series/sem
+                      </div>
+                      {Object.entries(volumenMuscular).map(([musculo, series]) => {
+                        const pct = Math.min((series / vol.mrv) * 100, 100)
+                        const color = series < vol.mev ? '#ef4444' : series > vol.mrv ? '#f97316' : series >= vol.mav ? '#10b981' : '#6366f1'
+                        return (
+                          <div key={musculo} style={{ marginBottom: 10 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600 }}>{musculo}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color }}>{series} series/sem</span>
+                            </div>
+                            <div style={{ height: 6, borderRadius: 3, background: '#f2f2f7' }}>
+                              <div style={{ height: 6, borderRadius: 3, background: color, width: `${pct}%`, transition: 'width .3s' }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                      <div style={{ fontSize: 10, color: '#8e8e93', marginTop: 8, lineHeight: 1.5 }}>
+                        🔴 Bajo MEV · 🟣 En rango efectivo · 🟢 En MAV (óptimo) · 🟠 Sobre MRV (recupera)
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
             <div style={{ ...S.card, padding: 16, marginBottom: 10, background: '#eef2ff' }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#6366f1', marginBottom: 4 }}>📅 Semana actual: {getWeekKey()}</div>
               <div style={{ fontSize: 12, color: '#8e8e93', marginBottom: 12 }}>Guarda un snapshot de tus mejores marcas para comparar semana a semana.</div>
