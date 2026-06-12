@@ -12,12 +12,28 @@ function useLS(key, init) {
   return [val, save]
 }
 
-function getWeekKey() {
-  const d = new Date()
+function getWeekKey(d = new Date()) {
   const start = new Date(d.getFullYear(), 0, 1)
   const week = Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7)
   return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
 }
+
+// Devuelve los 7 días de la semana actual (lun–dom) con fecha real
+function getSemanaActual() {
+  const hoy = new Date()
+  const diaSemana = hoy.getDay() // 0=dom,1=lun...6=sab
+  const lunes = new Date(hoy)
+  lunes.setDate(hoy.getDate() - ((diaSemana + 6) % 7)) // retroceder al lunes
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(lunes)
+    d.setDate(lunes.getDate() + i)
+    return d
+  })
+}
+
+const DIAS_SEMANA_LABEL = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+// Mapeo índice semana (0=lun…4=vie) → índice en DIAS[]
+const DIA_IDX_MAP = [0, 1, 2, 3, 4] // lun→0, mar→1, mié→2, jue→3, vie→4
 
 const S = {
   page: { maxWidth: 430, margin: '0 auto', minHeight: '100dvh', background: '#f5f5f7', paddingBottom: 84 },
@@ -177,7 +193,9 @@ export default function App() {
   const [users, setUsers] = useLS('rg_users', [])
   const [userId, setUserId] = useState(null)
   const [tab, setTab] = useState('entreno')
-  const [diaIdx, setDiaIdx] = useState(0)
+  // Calcular el día de hoy (0=lun…4=vie, 5/6=finde→0)
+  const hoyDow = (() => { const d = new Date().getDay(); return d === 0 ? 4 : Math.min(d - 1, 4) })()
+  const [diaIdx, setDiaIdx] = useState(hoyDow)
   const [ejAbierto, setEjAbierto] = useState(null)
   const [altAbierta, setAltAbierta] = useState(null)
   const [allData, setAllData] = useLS('rg_data', {})
@@ -378,22 +396,71 @@ export default function App() {
         {/* ══════════ ENTRENO ══════════ */}
         {tab === 'entreno' && (
           <>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 12 }}>
-              {DIAS.map((d, i) => (
-                <button key={d.id} style={S.btnPill(diaIdx === i, cicloInfo.color)}
-                  onClick={() => { setDiaIdx(i); setEjAbierto(null); setAltAbierta(null) }}>
-                  {d.emoji} {d.nombre}
-                </button>
-              ))}
-            </div>
+            {/* ── Calendario semanal ── */}
+            {(() => {
+              const semana = getSemanaActual()
+              const hoy = new Date()
+              hoy.setHours(0,0,0,0)
+              return (
+                <div style={{ background: '#fff', borderRadius: 16, padding: '14px 12px', marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  {/* Mes y año */}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1c1e', marginBottom: 12, paddingLeft: 2 }}>
+                    {hoy.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                    {semana.map((fecha, i) => {
+                      const esFinde = i >= 5
+                      const esHoy = fecha.getTime() === hoy.getTime()
+                      const esActivo = !esFinde && diaIdx === DIA_IDX_MAP[i]
+                      const tieneSesion = !esFinde
+                      return (
+                        <button key={i}
+                          onClick={() => { if (!esFinde) { setDiaIdx(DIA_IDX_MAP[i]); setEjAbierto(null); setAltAbierta(null) } }}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                            padding: '8px 4px', borderRadius: 12, border: 'none', cursor: esFinde ? 'default' : 'pointer',
+                            background: esActivo ? cicloInfo.color : esHoy ? cicloInfo.bg : 'transparent',
+                            opacity: esFinde ? 0.35 : 1,
+                            transition: 'all .15s',
+                          }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: esActivo ? '#fff' : '#8e8e93' }}>
+                            {DIAS_SEMANA_LABEL[i]}
+                          </span>
+                          <span style={{ fontSize: 17, fontWeight: 800, color: esActivo ? '#fff' : esHoy ? cicloInfo.color : '#1c1c1e' }}>
+                            {fecha.getDate()}
+                          </span>
+                          {tieneSesion && (
+                            <span style={{ fontSize: 14, lineHeight: 1 }}>
+                              {esActivo || esHoy ? DIAS[DIA_IDX_MAP[i]]?.emoji : '·'}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
 
-            <div style={{ ...S.card, background: dia.bg, marginBottom: 12 }}>
-              <div style={{ padding: 16 }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: cicloInfo.color }}>{dia.enfoque}</div>
-                {dia.circuito && <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: cicloInfo.color }}>⚡ CIRCUITO – {dia.vueltas} VUELTAS · descanso 2 min</div>}
-                <div style={{ marginTop: 8, fontSize: 12, color: '#8e8e93' }}>🏃 {dia.cardio}</div>
-              </div>
-            </div>
+            {(() => {
+              const semana = getSemanaActual()
+              const fechaDia = semana[diaIdx]
+              const esHoy = fechaDia && fechaDia.setHours(0,0,0,0) === new Date().setHours(0,0,0,0)
+              const fechaStr = fechaDia ? fechaDia.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : ''
+              return (
+                <div style={{ ...S.card, background: dia.bg, marginBottom: 12 }}>
+                  <div style={{ padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: cicloInfo.color }}>{dia.emoji} {dia.enfoque}</div>
+                      {esHoy && <span style={{ fontSize: 11, fontWeight: 700, background: cicloInfo.color, color: '#fff', padding: '3px 10px', borderRadius: 20 }}>Hoy</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: cicloInfo.color, marginTop: 4, fontWeight: 500, textTransform: 'capitalize' }}>{fechaStr}</div>
+                    {dia.circuito && <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: cicloInfo.color }}>⚡ CIRCUITO – {dia.vueltas} VUELTAS · descanso 2 min</div>}
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#8e8e93' }}>🏃 {dia.cardio}</div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {dia.ejercicios.map((ej, idx) => {
               const open = ejAbierto === ej.id
