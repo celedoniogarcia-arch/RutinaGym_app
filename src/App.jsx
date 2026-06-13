@@ -1413,44 +1413,109 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* ── PROGRESO: lo que el usuario está listo para mejorar ─── */}
-                  {progresos && progresos.length > 0 && (
-                    <div style={{ ...S.card, overflow: 'hidden', marginBottom: 10 }}>
-                      <div style={{ padding: '12px 16px 8px' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#8e8e93' }}>TU PROGRESO</span>
-                      </div>
-                      {progresos.map((p, i) => (
-                        <div key={i} style={{ padding: '12px 16px', borderTop: '1px solid #f2f2f7', background: p.tipo === 'subir_nivel' ? '#fffbeb' : '#f0fdf4' }}>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: p.tipo === 'subir_nivel' ? '#d97706' : '#10b981' }}>{p.titulo}</div>
-                          {p.tipo === 'subir_carga' && (
-                            <>
-                              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {p.ejercicios.map(ej => (
-                                  <div key={ej.ejId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#dcfce7', borderRadius: 8, padding: '6px 10px' }}>
-                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#166534' }}>{ej.ejNombre}</span>
-                                    <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>{ej.mensaje}</span>
-                                  </div>
-                                ))}
-                              </div>
-                              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 8 }}>
-                                Los pesos sugeridos aparecen en cada ejercicio del entreno. Apúntalos y súbelos en la próxima sesión.
-                              </div>
-                            </>
-                          )}
-                          {p.tipo === 'subir_nivel' && (
-                            <>
-                              <div style={{ fontSize: 12, color: '#92400e', marginTop: 4, lineHeight: 1.5 }}>{p.desc}</div>
-                              <button
-                                onClick={() => updateUser({ nivel: p.siguienteNivel })}
-                                style={{ marginTop: 10, padding: '8px 16px', borderRadius: 10, background: '#d97706', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                                Subir a nivel {p.siguienteNivel === 'intermedio' ? 'Intermedio' : 'Avanzado'} →
-                              </button>
-                            </>
-                          )}
+                  {/* ── PROGRESO: siempre visible, crece con los datos ───────── */}
+                  {(() => {
+                    // Contar sesiones únicas registradas
+                    const todasFechas = new Set()
+                    Object.values(ud.registros || {}).forEach(ejReg => Object.keys(ejReg || {}).forEach(f => todasFechas.add(f)))
+                    const sesiones = todasFechas.size
+                    const sinDatos = sesiones === 0
+                    const pocasDatos = sesiones > 0 && sesiones < 3
+
+                    return (
+                      <div style={{ ...S.card, overflow: 'hidden', marginBottom: 10 }}>
+                        <div style={{ padding: '12px 16px 8px' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#8e8e93' }}>TU PROGRESO</span>
+                          {sesiones > 0 && <span style={{ fontSize: 11, color: '#8e8e93', marginLeft: 8 }}>{sesiones} sesión{sesiones !== 1 ? 'es' : ''} registrada{sesiones !== 1 ? 's' : ''}</span>}
                         </div>
-                      ))}
-                    </div>
-                  )}
+
+                        {/* Plan activo — siempre visible */}
+                        <div style={{ padding: '12px 16px', borderTop: '1px solid #f2f2f7' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1c1c1e', marginBottom: 8 }}>📋 Tu plan actual</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                            {[
+                              { label: 'Series/ejercicio', val: params.series },
+                              { label: 'Repeticiones', val: params.reps },
+                              { label: 'RIR (reps en reserva)', val: params.rir },
+                              { label: 'Intensidad', val: params.intensidad },
+                              { label: 'Cardio/semana', val: `${params.cardioSemana} ses.` },
+                              { label: 'Deload cada', val: `${params.deloadSemanas} sem.` },
+                            ].map(({ label, val }) => (
+                              <div key={label} style={{ background: '#f5f5f7', borderRadius: 10, padding: '8px 10px' }}>
+                                <div style={{ fontSize: 10, color: '#8e8e93', marginBottom: 2 }}>{label}</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: cicloInfo.color }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Sin datos: guía de qué va a pasar */}
+                        {sinDatos && (
+                          <div style={{ padding: '12px 16px', borderTop: '1px solid #f2f2f7', background: '#f0f9ff' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#0369a1', marginBottom: 6 }}>📈 Cómo funciona el análisis</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {[
+                                { n: 1, txt: 'Registra el peso y reps de cada ejercicio en el Entreno' },
+                                { n: 3, txt: 'Tras 3 sesiones la app sabe cuándo subir de peso' },
+                                { n: 15, txt: 'Con 15 sesiones evalúa si estás listo para subir de nivel' },
+                              ].map(({ n, txt }) => (
+                                <div key={n} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#0369a1', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{n}</div>
+                                  <div style={{ fontSize: 12, color: '#0c4a6e', paddingTop: 3, lineHeight: 1.4 }}>{txt}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Pocas sesiones: mostrar barra de progreso hacia primer análisis */}
+                        {pocasDatos && (
+                          <div style={{ padding: '12px 16px', borderTop: '1px solid #f2f2f7' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: '#1c1c1e' }}>Hacia el primer análisis</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: cicloInfo.color }}>{sesiones}/3 sesiones</span>
+                            </div>
+                            <div style={{ height: 6, borderRadius: 3, background: '#f2f2f7' }}>
+                              <div style={{ height: 6, borderRadius: 3, background: cicloInfo.color, width: `${(sesiones / 3) * 100}%`, transition: 'width .3s' }} />
+                            </div>
+                            <div style={{ fontSize: 11, color: '#8e8e93', marginTop: 6 }}>Registra {3 - sesiones} sesión{3 - sesiones !== 1 ? 'es' : ''} más y la app empezará a sugerirte cuándo subir de peso.</div>
+                          </div>
+                        )}
+
+                        {/* Con suficientes datos: progresos reales */}
+                        {progresos && progresos.map((p, i) => (
+                          <div key={i} style={{ padding: '12px 16px', borderTop: '1px solid #f2f2f7', background: p.tipo === 'subir_nivel' ? '#fffbeb' : '#f0fdf4' }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: p.tipo === 'subir_nivel' ? '#d97706' : '#10b981' }}>{p.titulo}</div>
+                            {p.tipo === 'subir_carga' && (
+                              <>
+                                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {p.ejercicios.map(ej => (
+                                    <div key={ej.ejId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#dcfce7', borderRadius: 8, padding: '6px 10px' }}>
+                                      <span style={{ fontSize: 13, fontWeight: 600, color: '#166534' }}>{ej.ejNombre}</span>
+                                      <span style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>{ej.mensaje}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 8 }}>
+                                  Los pesos sugeridos aparecen también en cada ejercicio del Entreno.
+                                </div>
+                              </>
+                            )}
+                            {p.tipo === 'subir_nivel' && (
+                              <>
+                                <div style={{ fontSize: 12, color: '#92400e', marginTop: 4, lineHeight: 1.5 }}>{p.desc}</div>
+                                <button
+                                  onClick={() => updateUser({ nivel: p.siguienteNivel })}
+                                  style={{ marginTop: 10, padding: '8px 16px', borderRadius: 10, background: '#d97706', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
+                                  Subir a nivel {p.siguienteNivel === 'intermedio' ? 'Intermedio' : 'Avanzado'} →
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
 
                   {/* ── AVISOS: solo sobre comportamiento del usuario ────────── */}
                   {alertas.length > 0 && (
