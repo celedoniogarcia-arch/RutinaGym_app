@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { CICLOS, PLATOS, PLATOS_PREPARADOS, AVATARS, getDiasCiclo, matchMusculo } from './data.js'
+import { CICLOS, PLATOS, PLATOS_PREPARADOS, AVATARS, getDiasCiclo, matchMusculo, getPlatosByObjetivo } from './data.js'
 import fitcronEjercicios from './fitcron_exercises.json'
 import { getProfiles, upsertProfile, deleteProfile, getUserData, saveUserData, getDieta, saveDieta } from './db.js'
 import { OBJETIVOS, NIVELES, generarRecomendaciones, calcularNutricionObjetivo, normalizarMusculo } from './rulesEngine.js'
@@ -475,14 +475,31 @@ export default function App() {
   // ── Dieta ──
   const dUser = dietaData || { altura: '', edad: '', pesoActual: '', pesoObj: '', meta: 'recomposicion', sexo: 'hombre' }
   function calcDieta() {
-    const { altura, edad, pesoActual, meta, sexo } = dUser
+    const { altura, edad, pesoActual, sexo } = dUser
     if (!altura || !edad || !pesoActual) return
-    const tmb = sexo === 'hombre' ? 10 * +pesoActual + 6.25 * +altura - 5 * +edad + 5 : 10 * +pesoActual + 6.25 * +altura - 5 * +edad - 161
-    const tdee = Math.round(tmb * 1.55)
-    const kcal = meta === 'perder' ? tdee - 400 : meta === 'ganar' ? tdee + 300 : tdee
-    const p = Math.round(+pesoActual * 2.0), g = Math.round(kcal * 0.25 / 9)
-    const c = Math.round((kcal - p * 4 - g * 9) / 4)
-    setDietaCalc({ tdee, kcal, p, c, g })
+    const objetivo = user?.objetivo || 'recomposicion'
+    const nivel    = user?.nivel    || 'intermedio'
+    // Harris-Benedict revisado (Mifflin-St Jeor)
+    const tmb = sexo === 'hombre'
+      ? 10 * +pesoActual + 6.25 * +altura - 5 * +edad + 5
+      : 10 * +pesoActual + 6.25 * +altura - 5 * +edad - 161
+    // Factor actividad según días de entreno (nivel)
+    const actFactor = nivel === 'principiante' ? 1.45 : nivel === 'avanzado' ? 1.65 : 1.55
+    const tdee = Math.round(tmb * actFactor)
+    // Ajuste calórico por objetivo (ISSN + RP guidelines)
+    const ajuste = { perder: -450, recomposicion: 0, ganar: 300, fuerza: 200 }
+    const kcal = tdee + (ajuste[objetivo] ?? 0)
+    // Proteína (g/kg): mayor en déficit para preservar músculo
+    const protRatio = { perder: 2.2, recomposicion: 2.0, ganar: 1.9, fuerza: 2.2 }
+    const p = Math.round(+pesoActual * (protRatio[objetivo] ?? 2.0))
+    // Grasas: mínimo 0.8g/kg corporal
+    const g = Math.max(Math.round(+pesoActual * 0.8), Math.round(kcal * 0.22 / 9))
+    // Carbos: resto de calorías
+    const c = Math.max(0, Math.round((kcal - p * 4 - g * 9) / 4))
+    // Ciclado calórico para recomposición
+    const kcalEntreno  = objetivo === 'recomposicion' ? tdee + 100 : null
+    const kcalDescanso = objetivo === 'recomposicion' ? tdee - 300 : null
+    setDietaCalc({ tdee, kcal, p, c, g, objetivo, nivel, kcalEntreno, kcalDescanso })
   }
 
   // ── Actividades extra ──
@@ -1047,94 +1064,154 @@ export default function App() {
         {/* ══════════ DIETA ══════════ */}
         {tab === 'dieta' && (
           <>
+            {/* Perfil de entrenamiento activo → informa la dieta */}
+            {user && (() => {
+              const objId = user.objetivo || 'recomposicion'
+              const nivId = user.nivel    || 'intermedio'
+              const objInfo = OBJETIVOS.find(o => o.id === objId) || OBJETIVOS[0]
+              const nivInfo = NIVELES.find(n => n.id === nivId)   || NIVELES[0]
+              return (
+                <div style={{ ...S.card, padding: '12px 16px', marginBottom: 10, background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', marginBottom: 6 }}>🎯 Dieta adaptada a tu perfil de entrenamiento</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[
+                      [objInfo.icon, objInfo.nombre, 'Objetivo'],
+                      [nivInfo.icon, nivInfo.nombre, 'Nivel'],
+                      [esFinde ? '🏖️' : '💪', esFinde ? 'Descanso' : 'Entreno', 'Hoy'],
+                    ].map(([icon, nombre, label]) => (
+                      <div key={label} style={{ flex: 1, background: '#fff', borderRadius: 10, padding: '8px 6px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 18 }}>{icon}</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', marginTop: 2 }}>{nombre}</div>
+                        <div style={{ fontSize: 9, color: '#8e8e93' }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             <div style={{ ...S.card, padding: 16, marginBottom: 10 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Tus datos</div>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Tus datos físicos</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 {[['Altura (cm)', 'altura', '175'], ['Edad (años)', 'edad', '30'], ['Peso actual (kg)', 'pesoActual', '80'], ['Peso objetivo (kg)', 'pesoObj', '75']].map(([l, k, ph]) => (
                   <div key={k}><div style={S.label}>{l}</div>
                     <input type="number" inputMode="decimal" placeholder={ph} value={dUser[k] || ''} onChange={e => setDietaUser({ ...dUser, [k]: e.target.value })} style={S.input} /></div>
                 ))}
               </div>
-              <div style={S.label}>Sexo</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <div style={S.label}>Sexo biológico</div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 {[['hombre', '♂ Hombre'], ['mujer', '♀ Mujer']].map(([v, l]) => (
                   <button key={v} style={{ ...S.btnPill(dUser.sexo === v, '#6366f1'), flex: 1 }} onClick={() => setDietaUser({ ...dUser, sexo: v })}>{l}</button>
                 ))}
               </div>
-              <div style={S.label}>Objetivo</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {[['perder', '🔥 Bajar'], ['recomposicion', '⚡ Recomp'], ['ganar', '💪 Ganar']].map(([v, l]) => (
-                  <button key={v} style={{ ...S.btnPill(dUser.meta === v, '#6366f1'), flex: 1 }} onClick={() => setDietaUser({ ...dUser, meta: v })}>{l}</button>
-                ))}
-              </div>
+              {user && (
+                <div style={{ fontSize: 12, color: '#8e8e93', marginBottom: 12, padding: '8px 12px', background: '#f9f9fb', borderRadius: 10 }}>
+                  El objetivo y nivel se toman de tu perfil de entrenamiento: <b>{(OBJETIVOS.find(o => o.id === (user.objetivo || 'recomposicion')) || OBJETIVOS[0]).nombre}</b> · <b>{(NIVELES.find(n => n.id === (user.nivel || 'intermedio')) || NIVELES[0]).nombre}</b>.
+                </div>
+              )}
               <button style={S.btnPrimary('#6366f1')} onClick={calcDieta}>Calcular mi plan</button>
             </div>
-            {dietaCalc && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 10 }}>
-                  {[['Calorías', dietaCalc.kcal, 'kcal', '#f97316'], ['Proteína', dietaCalc.p, 'g', '#6366f1'], ['Carbos', dietaCalc.c, 'g', '#f59e0b']].map(([l, v, u, c]) => (
-                    <div key={l} style={{ ...S.card, padding: 14, textAlign: 'center' }}>
-                      <div style={{ fontSize: 11, color: '#8e8e93' }}>{l}</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: c, marginTop: 4 }}>{v}</div>
-                      <div style={{ fontSize: 11, color: '#8e8e93' }}>{u}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ ...S.card, padding: '12px 16px', marginBottom: 10, display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13, color: '#8e8e93' }}>Grasas: <b style={{ color: '#a855f7' }}>{dietaCalc.g}g</b></span>
-                  <span style={{ fontSize: 13, color: '#8e8e93' }}>Mantenimiento: <b>{dietaCalc.tdee} kcal</b></span>
-                </div>
-                {[
-                  { hora: '08:00', label: 'Entreno', icon: '💪', color: '#6366f1', tipo: null, nota: 'Café solo o agua. Entreno en ayunas.' },
-                  { hora: '09:00', label: 'Post-entreno', icon: '🍗', color: '#10b981', tipo: 'postEntreno', nota: 'Proteína + carbohidratos para recuperar' },
-                  { hora: '13:00', label: 'Comida principal', icon: '🍽️', color: '#f97316', tipo: 'comida', nota: 'Mayor aporte calórico del día' },
-                  { hora: '17:00', label: 'Merienda', icon: '🥛', color: '#f59e0b', tipo: 'merienda', nota: 'Proteína + fruta o carbohidrato ligero' },
-                  { hora: '22:00', label: 'Cena', icon: '🌙', color: '#8b5cf6', tipo: 'cena', nota: 'Proteína + verduras, pocos carbos' },
-                ].map(({ hora, label, icon, color, tipo, nota }) => (
-                  <div key={hora} style={{ ...S.card, marginBottom: 10 }}>
-                    <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 12, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{icon}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 15, fontWeight: 700 }}>{label}</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color }}>{hora}</span>
-                        </div>
-                        <div style={{ fontSize: 12, color: '#8e8e93', marginTop: 2 }}>{nota}</div>
+
+            {dietaCalc && (() => {
+              const objetivo = dietaCalc.objetivo || user?.objetivo || 'recomposicion'
+              const platos = getPlatosByObjetivo(objetivo, !esFinde)
+              const esRecomp = objetivo === 'recomposicion'
+              // Slots de comida según si es día de entreno o descanso
+              const slots = esFinde
+                ? [
+                    { hora: '08:30', label: 'Desayuno', icon: '☀️', color: '#f59e0b', tipo: 'desayuno', nota: 'Día de descanso: desayuno completo sin prisa.' },
+                    { hora: '14:00', label: 'Comida principal', icon: '🍽️', color: '#f97316', tipo: 'comida', nota: 'Proteína + carbos moderados. Día de recuperación.' },
+                    { hora: '17:30', label: 'Merienda', icon: '🥛', color: '#f59e0b', tipo: 'merienda', nota: 'Proteína + fruta. Sin carbos de alto IG.' },
+                    { hora: '21:30', label: 'Cena', icon: '🌙', color: '#8b5cf6', tipo: 'cena', nota: 'Proteína + verduras. Pocos carbos por la noche.' },
+                  ]
+                : [
+                    { hora: '07:30', label: 'Desayuno / Pre-entreno', icon: '☀️', color: '#f59e0b', tipo: 'desayuno', nota: 'Carbos complejos + proteína. Energía para el entreno.' },
+                    { hora: '09:00', label: 'Post-entreno', icon: '🍗', color: '#10b981', tipo: 'postEntreno', nota: 'Ventana anabólica: proteína + carbos rápidos en <60 min.' },
+                    { hora: '13:30', label: 'Comida principal', icon: '🍽️', color: '#f97316', tipo: 'comida', nota: 'Mayor aporte calórico del día. Proteína + carbos complejos.' },
+                    { hora: '17:00', label: 'Merienda', icon: '🥛', color: '#f59e0b', tipo: 'merienda', nota: 'Proteína + fruta o carbohidrato ligero.' },
+                    { hora: '21:30', label: 'Cena', icon: '🌙', color: '#8b5cf6', tipo: 'cena', nota: 'Proteína + verduras. Pocos carbos para favorecer la recuperación nocturna.' },
+                  ]
+              return (
+                <>
+                  {/* Macros del día */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 }}>
+                    {[['Calorías', dietaCalc.kcal, 'kcal', '#f97316'], ['Proteína', dietaCalc.p, 'g', '#6366f1'], ['Carbos', dietaCalc.c, 'g', '#f59e0b']].map(([l, v, u, c]) => (
+                      <div key={l} style={{ ...S.card, padding: 14, textAlign: 'center' }}>
+                        <div style={{ fontSize: 11, color: '#8e8e93' }}>{l}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: c, marginTop: 4 }}>{v}</div>
+                        <div style={{ fontSize: 11, color: '#8e8e93' }}>{u}</div>
                       </div>
+                    ))}
+                  </div>
+                  <div style={{ ...S.card, padding: '10px 16px', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#8e8e93' }}>Grasas: <b style={{ color: '#a855f7' }}>{dietaCalc.g}g</b></span>
+                      <span style={{ fontSize: 13, color: '#8e8e93' }}>Mantenimiento: <b>{dietaCalc.tdee} kcal</b></span>
                     </div>
-                    {tipo && PLATOS[tipo] && (
-                      <div style={{ borderTop: '1px solid #f2f2f7' }}>
-                        {PLATOS[tipo].map((plato, i) => (
-                          <div key={i}>
-                            <button onClick={() => setPlatoAbierto(platoAbierto === `${tipo}-${i}` ? null : `${tipo}-${i}`)}
-                              style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i < PLATOS[tipo].length - 1 ? '1px solid #f2f2f7' : 'none' }}>
-                              <span style={{ fontSize: 14, textAlign: 'left' }}>🍽️ {plato.nombre}</span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color }}>{plato.kcal} kcal</span>
-                                <span style={{ fontSize: 11, color: '#c7c7cc' }}>{platoAbierto === `${tipo}-${i}` ? '▲' : '▼'}</span>
-                              </div>
-                            </button>
-                            {platoAbierto === `${tipo}-${i}` && (
-                              <div style={{ background: '#f9f9fb', padding: '12px 16px' }}>
-                                <div style={{ fontSize: 13, color: '#3c3c43', marginBottom: 10, lineHeight: 1.5 }}>📋 {plato.receta}</div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  {[['Proteína', plato.p, '#6366f1'], ['Carbos', plato.c, '#f59e0b'], ['Grasas', plato.g, '#a855f7']].map(([l, v, c]) => (
-                                    <div key={l} style={{ flex: 1, background: '#fff', borderRadius: 10, padding: 8, textAlign: 'center' }}>
-                                      <div style={{ fontSize: 10, color: '#8e8e93' }}>{l}</div>
-                                      <div style={{ fontSize: 17, fontWeight: 800, color: c }}>{v}g</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                    {esRecomp && dietaCalc.kcalEntreno && (
+                      <div style={{ marginTop: 8, padding: '6px 10px', background: '#ecfdf5', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', marginBottom: 2 }}>⚡ Ciclado calórico (recomposición)</div>
+                        <div style={{ display: 'flex', gap: 16 }}>
+                          <span style={{ fontSize: 12, color: '#065f46' }}>💪 Entreno: <b>{dietaCalc.kcalEntreno} kcal</b></span>
+                          <span style={{ fontSize: 12, color: '#065f46' }}>🏖️ Descanso: <b>{dietaCalc.kcalDescanso} kcal</b></span>
+                        </div>
                       </div>
                     )}
                   </div>
-                ))}
-              </>
-            )}
+
+                  {/* Plan de comidas del día */}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#3c3c43', marginBottom: 8, paddingLeft: 4 }}>
+                    {esFinde ? '🏖️ Plan día de descanso' : '💪 Plan día de entreno'}
+                  </div>
+                  {slots.map(({ hora, label, icon, color, tipo, nota }) => {
+                    const lista = platos[tipo] || []
+                    return (
+                      <div key={hora} style={{ ...S.card, marginBottom: 10 }}>
+                        <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 12, background: color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{icon}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 15, fontWeight: 700 }}>{label}</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color }}>{hora}</span>
+                            </div>
+                            <div style={{ fontSize: 12, color: '#8e8e93', marginTop: 2 }}>{nota}</div>
+                          </div>
+                        </div>
+                        {lista.length > 0 && (
+                          <div style={{ borderTop: '1px solid #f2f2f7' }}>
+                            {lista.map((plato, i) => (
+                              <div key={i}>
+                                <button onClick={() => setPlatoAbierto(platoAbierto === `${tipo}-${i}` ? null : `${tipo}-${i}`)}
+                                  style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i < lista.length - 1 ? '1px solid #f2f2f7' : 'none' }}>
+                                  <span style={{ fontSize: 14, textAlign: 'left' }}>🍽️ {plato.nombre}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color }}>{plato.kcal} kcal</span>
+                                    <span style={{ fontSize: 11, color: '#c7c7cc' }}>{platoAbierto === `${tipo}-${i}` ? '▲' : '▼'}</span>
+                                  </div>
+                                </button>
+                                {platoAbierto === `${tipo}-${i}` && (
+                                  <div style={{ background: '#f9f9fb', padding: '12px 16px' }}>
+                                    <div style={{ fontSize: 13, color: '#3c3c43', marginBottom: 10, lineHeight: 1.5 }}>📋 {plato.receta}</div>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                      {[['Proteína', plato.p, '#6366f1'], ['Carbos', plato.c, '#f59e0b'], ['Grasas', plato.g, '#a855f7']].map(([l, v, c]) => (
+                                        <div key={l} style={{ flex: 1, background: '#fff', borderRadius: 10, padding: 8, textAlign: 'center' }}>
+                                          <div style={{ fontSize: 10, color: '#8e8e93' }}>{l}</div>
+                                          <div style={{ fontSize: 17, fontWeight: 800, color: c }}>{v}g</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </>
+              )
+            })()}
 
             {/* Comida preparada / supermercado */}
             <div style={{ ...S.card, marginTop: 10 }}>

@@ -553,44 +553,229 @@ export function getDiasCiclo(cicloId, objetivo = 'recomposicion', nivel = 'inter
   }))
 }
 
-export const PLATOS = {
-  postEntreno: [
-    { nombre: 'Pollo + arroz + brócoli', kcal: 580, p: 52, c: 60, g: 10, receta: '200g pechuga a la plancha, 80g arroz basmati, brócoli al vapor con AOVE' },
-    { nombre: 'Salmón + boniato + ensalada', kcal: 560, p: 45, c: 50, g: 14, receta: '180g salmón al horno con limón, 200g boniato, lechuga y tomate' },
-    { nombre: 'Ternera + pasta integral', kcal: 600, p: 50, c: 58, g: 12, receta: '180g ternera, 80g pasta integral, salsa de tomate natural' },
-    { nombre: 'Claras + tortitas de avena', kcal: 420, p: 40, c: 48, g: 6, receta: '200g claras de huevo revueltas, 60g copos de avena, arándanos y miel' },
-  ],
-  comida: [
-    { nombre: 'Merluza + quinoa + verduras', kcal: 520, p: 48, c: 50, g: 9, receta: '200g merluza al vapor, 70g quinoa, pimientos y cebolla salteados' },
-    { nombre: 'Pechuga al horno + garbanzos', kcal: 540, p: 50, c: 45, g: 10, receta: '200g pechuga, 150g garbanzos, pimientos rojos asados' },
-    { nombre: 'Atún + arroz + aguacate', kcal: 510, p: 46, c: 48, g: 13, receta: '2 latas atún al natural, 70g arroz, 1/2 aguacate, limón' },
-    { nombre: 'Lentejas + pollo + espinacas', kcal: 530, p: 48, c: 52, g: 8, receta: '150g lentejas cocidas, 150g pechuga a tiras, espinacas salteadas' },
-  ],
-  merienda: [
-    { nombre: 'Yogur griego + frutos rojos', kcal: 320, p: 22, c: 28, g: 12, receta: '200g yogur griego 0%, 80g arándanos, 15g nueces' },
-    { nombre: 'Batido proteico + plátano', kcal: 340, p: 32, c: 38, g: 5, receta: '30g proteína de suero, 250ml leche semidesnatada, 1 plátano' },
-    { nombre: 'Tostadas + huevo + aguacate', kcal: 360, p: 20, c: 32, g: 16, receta: '2 tostadas integrales, 2 huevos revueltos, 1/2 aguacate' },
-    { nombre: 'Queso cottage + fruta + almendras', kcal: 300, p: 26, c: 22, g: 10, receta: '200g queso cottage, 1 manzana, 15g almendras' },
-  ],
-  cena: [
-    { nombre: 'Tortilla + ensalada mixta', kcal: 380, p: 32, c: 10, g: 18, receta: '3 huevos, cebolla, pimiento, ensalada con AOVE' },
-    { nombre: 'Salmón a la plancha + espárragos', kcal: 400, p: 40, c: 6, g: 16, receta: '180g salmón, espárragos a la plancha, limón' },
-    { nombre: 'Pollo al horno + calabacín', kcal: 360, p: 42, c: 12, g: 10, receta: '200g pechuga con hierbas, calabacín y cebolla salteados' },
-    { nombre: 'Merluza al vapor + brócoli + huevo', kcal: 340, p: 44, c: 8, g: 10, receta: '200g merluza, brócoli al vapor, 1 huevo cocido, AOVE' },
-  ],
+// ─── Platos por objetivo (entrenamiento y descanso) ───────────────────────────
+// Fuente: ISSN Position Stand (protein), RP Nutrition guidelines, NSCA
+// Proteína: perder 2.2g/kg · recomp 2.0g/kg · ganar 1.9g/kg · fuerza 2.2g/kg
+// Días entreno: más carbos; días descanso: sin slot post-entreno, carbos -30%
+
+const _PLANES = {
+  perder: {
+    desayuno: [
+      { nombre: 'Tortilla de claras + pimientos y espinacas', kcal: 250, p: 28, c: 8, g: 10, receta: '5 claras + 1 yema, pimientos y espinacas salteados. Alta proteína sin pico de insulina.' },
+      { nombre: 'Yogur griego 0% + chía + arándanos', kcal: 220, p: 20, c: 18, g: 5, receta: '200g yogur griego 0%, 1 cda chía, 80g arándanos. Proteína + fibra sin carbos rápidos.' },
+      { nombre: 'Avena + proteína de suero + canela', kcal: 310, p: 28, c: 32, g: 8, receta: '50g avena, 25g proteína de suero, 150ml agua, canela. Pre-entreno si se entrena en ayunas.' },
+      { nombre: 'Requesón + fresas + nueces', kcal: 230, p: 22, c: 14, g: 8, receta: '200g requesón, 100g fresas, 10g nueces. Caseína natural de digestión lenta.' },
+    ],
+    postEntreno: [
+      { nombre: 'Pechuga + arroz blanco + brócoli', kcal: 460, p: 52, c: 46, g: 6, receta: '200g pechuga a la plancha, 70g arroz cocido (sin sal), brócoli al vapor. Ventana anabólica: carbos rápidos + proteína.' },
+      { nombre: 'Claras + tortitas de avena proteicas', kcal: 380, p: 42, c: 38, g: 5, receta: '200g claras pasteurizadas, 50g avena, 25g proteína, canela. Sin yemas para reducir grasas.' },
+      { nombre: 'Atún al natural + boniato + ensalada', kcal: 400, p: 46, c: 38, g: 5, receta: '2 latas atún, 150g boniato cocido, lechuga, tomate, vinagre. IG moderado + proteína limpia.' },
+      { nombre: 'Pollo deshebrado + quinoa + espinacas baby', kcal: 420, p: 50, c: 36, g: 6, receta: '200g pollo, 60g quinoa, espinacas baby, limón. Proteína completa + aminoácidos de quinoa.' },
+    ],
+    comida: [
+      { nombre: 'Merluza al vapor + verduras + huevo cocido', kcal: 360, p: 50, c: 12, g: 10, receta: '220g merluza, brócoli + judías verdes, 1 huevo duro. Muy bajo calórico con proteína alta.' },
+      { nombre: 'Ensalada de pollo + garbanzos + aguacate', kcal: 400, p: 46, c: 24, g: 12, receta: '200g pechuga, 80g garbanzos, 1/4 aguacate, tomate, pepino, limón.' },
+      { nombre: 'Bacalao al horno + pimientos + tomate', kcal: 340, p: 44, c: 14, g: 8, receta: '220g bacalao desalado, pimientos rojos y tomate asados. Muy bajo en grasa.' },
+      { nombre: 'Dorada al papillote + espárragos + patata pequeña', kcal: 370, p: 48, c: 18, g: 8, receta: '250g dorada, espárragos, 80g patata. Sin añadir grasa extra.' },
+      { nombre: 'Revuelto de gambas + setas + calabacín', kcal: 310, p: 38, c: 10, g: 12, receta: '200g gambas, setas, calabacín, 2 huevos, AOVE. Proteína muy alta, carbos mínimos.' },
+    ],
+    merienda: [
+      { nombre: 'Queso cottage + pepino + jamón york', kcal: 200, p: 24, c: 8, g: 6, receta: '150g cottage, 2 lonchas jamón york, pepino. Proteína de caseína sin carbos extra.' },
+      { nombre: 'Batido proteico + hielo + cacao puro', kcal: 180, p: 30, c: 10, g: 3, receta: '30g proteína de suero, 200ml agua, hielo, 1 cda cacao puro 100%. Saciante sin calorías.' },
+      { nombre: 'Atún + tostada integral + tomate', kcal: 230, p: 24, c: 20, g: 5, receta: '1 lata atún al natural, 1 tostada integral, tomate natural, orégano.' },
+      { nombre: 'Yogur skyr + pepitas de calabaza', kcal: 210, p: 26, c: 12, g: 6, receta: '180g skyr, 10g pepitas de calabaza. Skyr: 11g proteína/100g vs 6g del yogur estándar.' },
+    ],
+    cena: [
+      { nombre: 'Salmón a la plancha + ensalada verde + aguacate', kcal: 370, p: 40, c: 6, g: 18, receta: '180g salmón, lechuga variada, 1/4 aguacate, limón. Omega-3 antiinflamatorio nocturno.' },
+      { nombre: 'Tortilla de claras + calabacín salteado', kcal: 270, p: 30, c: 8, g: 10, receta: '5 claras + 1 yema, calabacín, ajo, perejil. Proteína lenta (caseína del huevo) para la noche.' },
+      { nombre: 'Pollo al horno + champiñones + brócoli', kcal: 300, p: 42, c: 10, g: 8, receta: '200g muslo sin piel, champiñones, brócoli, tomillo, sin salsas. Cena alta en proteína.' },
+      { nombre: 'Merluza en papillote + espinacas + limón', kcal: 280, p: 44, c: 6, g: 8, receta: '220g merluza, espinacas, tomate cherry, limón. Sin aceite extra. Menos de 300 kcal.' },
+      { nombre: 'Ensalada de gambas + huevo + aguacate', kcal: 320, p: 36, c: 8, g: 14, receta: '200g gambas cocidas, 2 huevos, 1/4 aguacate, lechuga. Proteína + grasas buenas sin carbos.' },
+    ],
+  },
+
+  ganar: {
+    desayuno: [
+      { nombre: 'Avena + plátano + proteína + crema de cacahuete', kcal: 580, p: 38, c: 72, g: 14, receta: '80g avena, 1 plátano, 25g proteína, 15g crema cacahuete. Carbos complejos para energía duradera.' },
+      { nombre: 'Tostadas + huevos revueltos + aguacate + zumo natural', kcal: 620, p: 30, c: 68, g: 22, receta: '3 tostadas integrales, 3 huevos, 1/2 aguacate, zumo de naranja natural. Desayuno calórico completo.' },
+      { nombre: 'Pancakes proteicos + frutos rojos + miel', kcal: 550, p: 36, c: 66, g: 10, receta: '60g avena, 25g proteína, 3 claras, 1 yema, levadura. Con miel y arándanos.' },
+      { nombre: 'Porridge de avena + frutos secos + plátano + leche entera', kcal: 600, p: 28, c: 76, g: 18, receta: '90g avena, 300ml leche entera, 1 plátano, 20g nueces, miel. Alta densidad energética.' },
+    ],
+    postEntreno: [
+      { nombre: 'Pollo + arroz + boniato + brócoli', kcal: 680, p: 56, c: 78, g: 10, receta: '220g pechuga, 100g arroz, 150g boniato, brócoli. Máxima recarga de glucógeno post-entreno.' },
+      { nombre: 'Ternera + pasta integral + salsa de tomate', kcal: 720, p: 58, c: 82, g: 14, receta: '200g ternera magra, 100g pasta integral, tomate natural, orégano. Proteína animal + carbos complejos.' },
+      { nombre: 'Salmón + arroz jazmín + edamame', kcal: 660, p: 52, c: 68, g: 16, receta: '200g salmón, 90g arroz jazmín, 80g edamame, salsa soja light. Omega-3 + proteína completa vegetal.' },
+      { nombre: 'Atún + pasta + tomate cherry + aceitunas', kcal: 640, p: 54, c: 74, g: 12, receta: '3 latas atún, 90g pasta integral, tomate cherry, aceitunas negras, AOVE.' },
+    ],
+    comida: [
+      { nombre: 'Ternera con patata y pimientos al horno', kcal: 680, p: 54, c: 60, g: 18, receta: '220g solomillo, 200g patata, pimientos, cebolla. Densidad calórica alta con proteína animal premium.' },
+      { nombre: 'Arroz con pollo al curry y leche de coco', kcal: 720, p: 52, c: 76, g: 16, receta: '200g pollo, 100g arroz, leche de coco, curry, guisantes. Carbos altos para superávit limpio.' },
+      { nombre: 'Lentejas con chorizo y verduras', kcal: 650, p: 46, c: 72, g: 14, receta: '200g lentejas, 50g chorizo extra magro, zanahoria, puerro, apio.' },
+      { nombre: 'Pechuga empanada + puré de boniato + ensalada', kcal: 660, p: 50, c: 64, g: 16, receta: '220g pechuga, huevo, pan rallado avena, 200g boniato, ensalada verde.' },
+      { nombre: 'Salmón + quinoa + aguacate + edamame', kcal: 700, p: 52, c: 62, g: 22, receta: '200g salmón, 80g quinoa, 1/2 aguacate, 80g edamame. Máximo aporte de grasas saludables + proteína.' },
+    ],
+    merienda: [
+      { nombre: 'Batido ganador: leche + plátano + avena + proteína', kcal: 520, p: 40, c: 72, g: 8, receta: '300ml leche entera, 1 plátano, 50g avena, 25g proteína. Líquido y fácil de tomar si cuesta llegar a calorías.' },
+      { nombre: 'Tostadas + crema de cacahuete + miel', kcal: 480, p: 22, c: 58, g: 18, receta: '3 tostadas integrales, 25g crema cacahuete, miel. Alta densidad calórica sin sentirte lleno.' },
+      { nombre: 'Yogur griego + granola + plátano + nueces', kcal: 450, p: 22, c: 56, g: 14, receta: '200g yogur griego, 40g granola, 1/2 plátano, 15g nueces. Proteína + carbos rápidos y lentos.' },
+      { nombre: 'Arroz con leche proteico', kcal: 460, p: 28, c: 64, g: 8, receta: '70g arroz, 400ml leche semidesnatada, 20g proteína, canela, edulcorante. Clásico adaptado.' },
+    ],
+    cena: [
+      { nombre: 'Salmón + boniato + espárragos', kcal: 560, p: 48, c: 48, g: 16, receta: '200g salmón, 200g boniato, espárragos, limón, AOVE.' },
+      { nombre: 'Pollo al horno + arroz basmati + ensalada', kcal: 580, p: 52, c: 54, g: 12, receta: '220g pechuga, 80g arroz basmati, ensalada verde con AOVE.' },
+      { nombre: 'Tortilla de 4 huevos + patata + cebolla', kcal: 540, p: 36, c: 46, g: 20, receta: '4 huevos, 200g patata, cebolla caramelizada, AOVE. Clásica pero calórica.' },
+      { nombre: 'Pechuga rebozada en avena + puré de boniato', kcal: 560, p: 50, c: 52, g: 14, receta: '220g pechuga, huevo, avena en copos (no harina), 200g boniato.' },
+      { nombre: 'Bacalao al horno + patata + pimiento rojo', kcal: 520, p: 52, c: 44, g: 10, receta: '250g bacalao, 150g patata, pimiento rojo asado, AOVE, ajo.' },
+    ],
+  },
+
+  recomposicion: {
+    desayuno: [
+      { nombre: 'Avena + claras + arándanos + canela', kcal: 380, p: 30, c: 48, g: 6, receta: '60g avena, 150g claras pasteurizadas, 80g arándanos, canela. Carbos complejos + proteína para el día.' },
+      { nombre: 'Tostadas + huevos revueltos + tomate natural', kcal: 400, p: 26, c: 44, g: 12, receta: '2 tostadas integrales, 3 huevos, tomate natural, orégano, AOVE.' },
+      { nombre: 'Batido: avena + plátano + proteína + leche vegetal', kcal: 420, p: 32, c: 52, g: 6, receta: '50g avena, 1/2 plátano, 25g proteína, 200ml leche vegetal no azucarada.' },
+      { nombre: 'Bowl de quark + muesli + fruta + semillas', kcal: 390, p: 28, c: 46, g: 10, receta: '200g quark (alto en proteína), 35g muesli sin azúcar, fruta de temporada, semillas de lino.' },
+    ],
+    postEntreno: [
+      { nombre: 'Pollo + arroz basmati + brócoli', kcal: 520, p: 52, c: 58, g: 8, receta: '200g pechuga a la plancha, 80g arroz basmati, brócoli al vapor. El clásico más fiable post-entreno.' },
+      { nombre: 'Salmón + boniato + ensalada verde', kcal: 540, p: 46, c: 50, g: 14, receta: '180g salmón al horno, 180g boniato, lechuga, tomate, limón.' },
+      { nombre: 'Ternera + pasta integral + tomate natural', kcal: 580, p: 50, c: 58, g: 12, receta: '180g ternera, 80g pasta integral, tomate natural, albahaca, AOVE.' },
+      { nombre: 'Claras + tortitas de avena + 1/2 plátano', kcal: 460, p: 40, c: 52, g: 6, receta: '200g claras, 60g avena, 1/2 plátano, canela. Rápido de preparar y muy completo.' },
+    ],
+    comida: [
+      { nombre: 'Merluza al vapor + quinoa + pimientos salteados', kcal: 480, p: 48, c: 50, g: 9, receta: '200g merluza, 70g quinoa, pimientos y cebolla salteados, AOVE.' },
+      { nombre: 'Pechuga al horno + garbanzos + pimientos asados', kcal: 510, p: 50, c: 46, g: 10, receta: '200g pechuga, 150g garbanzos, pimientos rojos asados, ajo.' },
+      { nombre: 'Atún al natural + arroz + aguacate', kcal: 490, p: 46, c: 48, g: 13, receta: '2 latas atún, 70g arroz, 1/2 aguacate, limón, sal.' },
+      { nombre: 'Lentejas + pollo + espinacas salteadas', kcal: 500, p: 48, c: 52, g: 8, receta: '150g lentejas cocidas, 150g pechuga a tiras, espinacas, ajo.' },
+      { nombre: 'Bacalao al horno + patata pequeña + verduras', kcal: 470, p: 50, c: 44, g: 8, receta: '220g bacalao, 120g patata, pimiento rojo, AOVE, ajo, perejil.' },
+    ],
+    merienda: [
+      { nombre: 'Yogur griego 0% + frutos rojos + nueces', kcal: 300, p: 22, c: 26, g: 12, receta: '200g yogur griego, 80g arándanos, 15g nueces. Proteína + grasas saludables + antioxidantes.' },
+      { nombre: 'Batido proteico + 1/2 plátano', kcal: 320, p: 32, c: 38, g: 5, receta: '30g proteína, 250ml leche semidesnatada, 1/2 plátano. Merienda completa en 5 minutos.' },
+      { nombre: 'Queso cottage + manzana + almendras', kcal: 290, p: 26, c: 22, g: 10, receta: '200g cottage, 1 manzana en dados, 15g almendras. Proteína lenta (caseína) para evitar catabolismo.' },
+      { nombre: 'Tostadas + aguacate + atún al natural', kcal: 310, p: 26, c: 28, g: 12, receta: '2 tostadas integrales, 1/4 aguacate, 1 lata atún, limón, sal, pimienta.' },
+    ],
+    cena: [
+      { nombre: 'Tortilla de 3 huevos + ensalada mixta', kcal: 360, p: 32, c: 10, g: 18, receta: '3 huevos, cebolla, pimiento, ensalada con AOVE y vinagre. Sin carbos por la noche.' },
+      { nombre: 'Salmón a la plancha + espárragos + limón', kcal: 390, p: 40, c: 6, g: 16, receta: '180g salmón, espárragos a la plancha, limón. Omega-3 + proteína nocturna sin carbos.' },
+      { nombre: 'Pollo al horno + calabacín + tomate cherry', kcal: 340, p: 42, c: 12, g: 10, receta: '200g pechuga, calabacín, tomate cherry, tomillo, AOVE.' },
+      { nombre: 'Merluza al vapor + brócoli + huevo cocido', kcal: 320, p: 44, c: 8, g: 10, receta: '200g merluza, brócoli al vapor, 1 huevo, AOVE, limón.' },
+      { nombre: 'Gambas a la plancha + ensalada + hummus', kcal: 350, p: 36, c: 14, g: 12, receta: '200g gambas, lechugas variadas, 50g hummus, limón, AOVE.' },
+    ],
+  },
+
+  fuerza: {
+    desayuno: [
+      { nombre: 'Avena + huevos completos + plátano + leche entera', kcal: 520, p: 36, c: 64, g: 12, receta: '80g avena, 3 huevos, 1 plátano, 200ml leche. Energía sostenida para entrenos pesados.' },
+      { nombre: 'Tostadas + huevos + mantequilla de cacahuete', kcal: 560, p: 32, c: 62, g: 18, receta: '3 tostadas integrales, 3 huevos, 20g crema cacahuete, zumo naranja natural.' },
+      { nombre: 'Porridge proteico + nueces + miel', kcal: 480, p: 34, c: 58, g: 12, receta: '70g avena, 25g proteína de suero, 15g nueces, miel, leche entera. Glucógeno para grandes cargas.' },
+      { nombre: 'Bowl de huevos + quinoa + espinacas + aguacate', kcal: 500, p: 34, c: 44, g: 18, receta: '3 huevos pochados, 60g quinoa, espinacas salteadas, 1/4 aguacate. Hierro + proteína completa.' },
+    ],
+    postEntreno: [
+      { nombre: 'Ternera + arroz + patata cocida', kcal: 700, p: 60, c: 72, g: 14, receta: '220g solomillo/redondo, 90g arroz, 150g patata. Máxima síntesis proteica + recarga glucógeno.' },
+      { nombre: 'Pollo + pasta integral + tomate + queso parmesano', kcal: 660, p: 56, c: 68, g: 14, receta: '200g pechuga, 100g pasta, tomate natural, 30g parmesano rallado.' },
+      { nombre: 'Salmón + arroz jazmín + aguacate', kcal: 680, p: 52, c: 66, g: 18, receta: '200g salmón, 90g arroz, 1/4 aguacate, edamame, salsa soja.' },
+      { nombre: 'Batido de recuperación: leche + avena + plátano + proteína', kcal: 600, p: 50, c: 70, g: 10, receta: '40g proteína, 1 plátano, 50g avena, 300ml leche. Bebible en el vestuario.' },
+    ],
+    comida: [
+      { nombre: 'Ternera + lentejas + ensalada', kcal: 680, p: 60, c: 66, g: 14, receta: '220g solomillo, 180g lentejas cocidas, lechuga, tomate. Hierro + creatina natural de la carne.' },
+      { nombre: 'Dorada al horno + arroz + verduras salteadas', kcal: 620, p: 54, c: 60, g: 12, receta: '250g dorada, 80g arroz, pimientos, champiñones, ajo, AOVE.' },
+      { nombre: 'Pechuga + garbanzos + espinacas con ajo', kcal: 600, p: 58, c: 54, g: 10, receta: '220g pechuga, 150g garbanzos, espinacas, ajo, limón, comino.' },
+      { nombre: 'Salmón + patata + brócoli con AOVE', kcal: 640, p: 52, c: 58, g: 16, receta: '200g salmón, 200g patata, brócoli, limón, AOVE. Fuerza: calorías + omega-3 antiinflamatorio.' },
+      { nombre: 'Cerdo ibérico + quinoa + pimientos asados', kcal: 660, p: 54, c: 58, g: 16, receta: '220g lomo ibérico, 80g quinoa, pimientos rojos asados. Creatina natural en carne de cerdo.' },
+    ],
+    merienda: [
+      { nombre: 'Batido proteico + avena + frutos secos', kcal: 420, p: 36, c: 42, g: 12, receta: '30g proteína, 20g nueces, 30g avena en copos, 250ml leche. Proteína entre comidas.' },
+      { nombre: 'Tupper de pollo + arroz', kcal: 380, p: 40, c: 36, g: 6, receta: 'Sobrante de batch cooking: 150g pollo, 50g arroz. La merienda más práctica.' },
+      { nombre: 'Yogur griego + granola proteica + miel', kcal: 360, p: 24, c: 44, g: 10, receta: '200g yogur griego, 35g granola alta proteína, miel. Sencillo y efectivo.' },
+      { nombre: 'Pan de centeno + atún + aguacate', kcal: 380, p: 28, c: 36, g: 12, receta: '2 rebanadas pan centeno, 1 lata atún, 1/4 aguacate, pepino.' },
+    ],
+    cena: [
+      { nombre: 'Pollo al horno + boniato + ensalada verde', kcal: 500, p: 50, c: 44, g: 10, receta: '220g pechuga, 200g boniato, ensalada verde, AOVE. Recuperación muscular nocturna.' },
+      { nombre: 'Huevos + salmón ahumado + aguacate', kcal: 460, p: 40, c: 8, g: 22, receta: '3 huevos al plato, 80g salmón ahumado, 1/4 aguacate, limón, eneldo.' },
+      { nombre: 'Ternera a la plancha + espárragos + champiñones', kcal: 440, p: 50, c: 6, g: 16, receta: '200g solomillo/redondo, espárragos, champiñones, sal, pimienta, AOVE.' },
+      { nombre: 'Merluza al horno + quinoa + brócoli', kcal: 420, p: 48, c: 34, g: 8, receta: '220g merluza, 60g quinoa cocida, brócoli al vapor, limón.' },
+      { nombre: 'Tortilla de 4 huevos + espinacas + queso feta', kcal: 480, p: 38, c: 6, g: 28, receta: '4 huevos, espinacas baby, 40g queso feta. Proteína + grasas nocturnas. Sin carbos.' },
+    ],
+  },
 }
 
+export function getPlatosByObjetivo(objetivo = 'recomposicion', esDiaEntreno = true) {
+  const plan = _PLANES[objetivo] || _PLANES.recomposicion
+  if (esDiaEntreno) return plan
+  // Día de descanso: sin post-entreno, desayuno más ligero, sin slot de entreno
+  const { postEntreno: _skip, ...resto } = plan
+  return resto
+}
+
+// Retrocompatibilidad con cualquier referencia antigua a PLATOS
+export const PLATOS = _PLANES.recomposicion
+
 export const PLATOS_PREPARADOS = [
+  // ── Mercadona ─────────────────────────────────────────────────────────────────
   { servicio: 'Mercadona', nombre: 'Pollo asado con verduras', kcal: 280, p: 32, c: 8, g: 12, precio: '~3.50€', nota: 'Bandeja lista para calentar. Alta proteína, bajo carbo.' },
   { servicio: 'Mercadona', nombre: 'Poke de salmón y arroz', kcal: 420, p: 28, c: 46, g: 12, precio: '~4.50€', nota: 'Rico en omega-3. Comer frío o templado.' },
-  { servicio: 'Mercadona', nombre: 'Garbanzos a la jardinera', kcal: 300, p: 14, c: 38, g: 8, precio: '~1.80€', nota: 'Alta fibra, legumbre completa.' },
-  { servicio: 'Mercadona', nombre: 'Merluza en salsa verde', kcal: 240, p: 26, c: 6, g: 10, precio: '~3.80€', nota: 'Bajo en calorías, alto en proteína de pescado.' },
-  { servicio: 'Wetaca', nombre: 'Pollo con batata y brócoli', kcal: 490, p: 42, c: 44, g: 12, precio: '~6.90€', nota: 'Macro equilibrado. Ideal post-entreno.' },
-  { servicio: 'Wetaca', nombre: 'Salmón con quinoa y espinacas', kcal: 520, p: 40, c: 38, g: 18, precio: '~7.50€', nota: 'Rico en omega-3 y hierro.' },
-  { servicio: 'Wetaca', nombre: 'Ternera con arroz integral y judías', kcal: 560, p: 46, c: 50, g: 14, precio: '~7.20€', nota: 'Alta proteína animal. Para ciclos de volumen.' },
-  { servicio: 'Knoweats', nombre: 'Pollo tikka masala + arroz', kcal: 510, p: 45, c: 48, g: 11, precio: '~7.80€', nota: '40g proteína. Para deportistas.' },
-  { servicio: 'Casero/Batch', nombre: 'Meal prep: pollo + arroz × 5', kcal: 530, p: 50, c: 55, g: 10, precio: '~2.50€/ud', nota: 'Cocina 1kg pechuga + 500g arroz en 30 min para toda la semana.' },
-  { servicio: 'Casero/Batch', nombre: 'Meal prep: atún + pasta × 4', kcal: 480, p: 44, c: 52, g: 8, precio: '~2.00€/ud', nota: '4 latas atún + 400g pasta integral.' },
+  { servicio: 'Mercadona', nombre: 'Garbanzos a la jardinera', kcal: 300, p: 14, c: 38, g: 8, precio: '~1.80€', nota: 'Alta fibra, legumbre completa. Añade proteína extra si es post-entreno.' },
+  { servicio: 'Mercadona', nombre: 'Merluza en salsa verde', kcal: 240, p: 26, c: 6, g: 10, precio: '~3.80€', nota: 'Muy bajo en calorías. Ideal para déficit con proteína alta de pescado.' },
+  { servicio: 'Mercadona', nombre: 'Lentejas estofadas', kcal: 260, p: 12, c: 34, g: 6, precio: '~1.60€', nota: 'Alta fibra y hierro. Combinada con pollo = plato completo.' },
+  { servicio: 'Mercadona', nombre: 'Alubias blancas con verduras', kcal: 290, p: 16, c: 40, g: 6, precio: '~1.80€', nota: 'Legumbre completa. Proteína vegetal + carbos de absorción lenta.' },
+  { servicio: 'Mercadona', nombre: 'Pechuga de pollo a la plancha (pack 500g)', kcal: 165, p: 34, c: 0, g: 3, precio: '~4.50€/pack', nota: 'Proteína pura lista. 34g proteína por 100g. Combina con arroz o boniato.' },
+  { servicio: 'Mercadona', nombre: 'Ensalada de quinoa con pollo y verduras', kcal: 340, p: 24, c: 36, g: 10, precio: '~3.90€', nota: 'Sin preparar. Proteína + carbos complejos de quinoa. Ideal comida de trabajo.' },
+  { servicio: 'Mercadona', nombre: 'Bacalao con tomate y pimientos', kcal: 220, p: 28, c: 12, g: 6, precio: '~3.20€', nota: 'Bajo calórico. 28g proteína de pescado blanco. Perfecto en déficit.' },
+  { servicio: 'Mercadona', nombre: 'Revuelto de setas y espárragos', kcal: 210, p: 12, c: 8, g: 14, precio: '~2.80€', nota: 'Bajo en carbos. Añadir lata de atún para completar la proteína.' },
+  { servicio: 'Mercadona', nombre: 'Tortilla de patata (bandeja)', kcal: 320, p: 14, c: 28, g: 16, precio: '~2.50€', nota: 'Versátil. Mejor en volumen. En déficit: media ración + ensalada.' },
+  { servicio: 'Mercadona', nombre: 'Gazpacho andaluz (brick 1L)', kcal: 80, p: 2, c: 12, g: 3, precio: '~1.40€', nota: 'Hidratante y muy bajo en calorías. Ideal como primer plato o snack.' },
+  { servicio: 'Mercadona', nombre: 'Crema de calabacín y zanahoria', kcal: 120, p: 4, c: 18, g: 4, precio: '~1.80€', nota: 'Micronutrientes con muy pocas calorías. Primer plato en déficit.' },
+  { servicio: 'Mercadona', nombre: 'Hamburguesas de pavo (pack 4)', kcal: 140, p: 22, c: 4, g: 4, precio: '~3.20€/pack', nota: '22g proteína por unidad. Muy baja en grasa. Plancha 3 min por lado.' },
+  { servicio: 'Mercadona', nombre: 'Salmón marinado (sobre 100g)', kcal: 180, p: 22, c: 1, g: 10, precio: '~3.50€', nota: 'Omega-3 sin cocinar. Ideal en tostadas, ensaladas o con aguacate.' },
+  { servicio: 'Mercadona', nombre: 'Muslos de pollo al horno (bandeja)', kcal: 240, p: 28, c: 0, g: 14, precio: '~3.80€', nota: 'Más grasa que la pechuga pero más sabroso. Bien en volumen.' },
+  { servicio: 'Mercadona', nombre: 'Atún claro al natural (pack 3 latas)', kcal: 120, p: 28, c: 0, g: 1, precio: '~2.50€', nota: 'La proteína más barata y práctica. 28g proteína sin grasas.' },
+  { servicio: 'Mercadona', nombre: 'Edamame al vapor (bolsa 400g)', kcal: 140, p: 12, c: 10, g: 6, precio: '~2.20€', nota: 'Proteína vegetal completa. Snack o guarnición rica en fibra.' },
+  { servicio: 'Mercadona', nombre: 'Skyr natural Hacendado 0%', kcal: 65, p: 11, c: 4, g: 0, precio: '~1.20€/400g', nota: '11g proteína/100g. El lácteo más proteico del super. Merienda o desayuno.' },
+  { servicio: 'Mercadona', nombre: 'Queso cottage Hacendado', kcal: 90, p: 12, c: 4, g: 3, precio: '~1.60€/250g', nota: 'Proteína + caseína de digestión lenta. Ideal para la noche o merienda.' },
+
+  // ── Lidl ──────────────────────────────────────────────────────────────────────
+  { servicio: 'Lidl', nombre: 'Pollo al horno con patatas (Deluxe)', kcal: 350, p: 30, c: 28, g: 12, precio: '~3.99€', nota: 'Opción completa sin preparación. Buen ratio precio/proteína.' },
+  { servicio: 'Lidl', nombre: 'Filete de bacalao congelado (bolsa)', kcal: 95, p: 22, c: 0, g: 1, precio: '~5.99€/kg', nota: 'Proteína blanca muy económica. Descongelar en nevera la noche antes.' },
+  { servicio: 'Lidl', nombre: 'Ensalada fitness de pollo y quinoa', kcal: 300, p: 22, c: 32, g: 8, precio: '~3.50€', nota: 'Lista para comer. Proteína + carbos complejos sin cocinar.' },
+  { servicio: 'Lidl', nombre: 'Burger de ternera 5% grasa (pack 4)', kcal: 180, p: 26, c: 2, g: 8, precio: '~3.50€', nota: '26g proteína, muy baja en grasa. De lo mejor del súper en calidad/precio.' },
+  { servicio: 'Lidl', nombre: 'Yogur griego Milbona natural (pack 4)', kcal: 130, p: 11, c: 8, g: 6, precio: '~2.29€', nota: '125g por ración. Merienda o desayuno. Añadir proteína de suero para completar.' },
+  { servicio: 'Lidl', nombre: 'Salmón noruego fresco (lomo)', kcal: 200, p: 24, c: 0, g: 12, precio: '~12€/kg', nota: 'Mejor salmón precio/calidad. 24g proteína + omega-3. Plancha 4 min.' },
+  { servicio: 'Lidl', nombre: 'Mix de legumbres cocidas (bote)', kcal: 240, p: 14, c: 34, g: 4, precio: '~1.50€', nota: 'Garbanzos + lentejas + judías. Alta fibra. Añadir proteína animal.' },
+
+  // ── Carrefour ─────────────────────────────────────────────────────────────────
+  { servicio: 'Carrefour', nombre: 'Bowl tikka masala de pollo y arroz', kcal: 420, p: 36, c: 44, g: 10, precio: '~4.20€', nota: 'Sabor india. 36g proteína. Calentar 3 min en microondas.' },
+  { servicio: 'Carrefour', nombre: 'Salmón a la plancha con quinoa y verduras', kcal: 480, p: 40, c: 38, g: 14, precio: '~5.50€', nota: 'Omega-3 + proteína completa vegetal. Muy equilibrado.' },
+  { servicio: 'Carrefour', nombre: 'Pollo asado entero (charcutería)', kcal: 220, p: 30, c: 0, g: 11, precio: '~6.50€/ud', nota: 'Rinde 3-4 tomas. Proteína pura muy económica por ración.' },
+  { servicio: 'Carrefour', nombre: 'Ensalada César con pollo asado', kcal: 360, p: 28, c: 18, g: 18, precio: '~3.80€', nota: 'Lista para comer. Controla el aliño: aplicar la mitad para reducir calorías.' },
+
+  // ── Wetaca ────────────────────────────────────────────────────────────────────
+  { servicio: 'Wetaca', nombre: 'Pollo con batata y brócoli', kcal: 490, p: 42, c: 44, g: 12, precio: '~6.90€', nota: 'El más pedido. Macro equilibrado. Ideal post-entreno cualquier objetivo.' },
+  { servicio: 'Wetaca', nombre: 'Salmón con quinoa y espinacas', kcal: 520, p: 40, c: 38, g: 18, precio: '~7.50€', nota: 'Rico en omega-3 y hierro. Antiinflamatorio natural.' },
+  { servicio: 'Wetaca', nombre: 'Ternera con arroz integral y judías verdes', kcal: 560, p: 46, c: 50, g: 14, precio: '~7.20€', nota: 'Alta proteína animal. Para ciclos de volumen o fuerza.' },
+  { servicio: 'Wetaca', nombre: 'Bacalao al pil-pil con patata', kcal: 440, p: 44, c: 36, g: 12, precio: '~7.80€', nota: 'Receta tradicional. Proteína de calidad de pescado blanco.' },
+  { servicio: 'Wetaca', nombre: 'Lentejas con pollo y verduras', kcal: 480, p: 44, c: 48, g: 8, precio: '~6.80€', nota: 'Hierro + proteína completa. Ideal días de descanso.' },
+  { servicio: 'Wetaca', nombre: 'Merluza al horno con pisto', kcal: 380, p: 42, c: 22, g: 10, precio: '~7.20€', nota: 'Bajo calórico (380 kcal), proteína muy alta. Perfecto en déficit.' },
+  { servicio: 'Wetaca', nombre: 'Pollo al curry con cúrcuma y arroz basmati', kcal: 540, p: 44, c: 54, g: 12, precio: '~6.90€', nota: 'Cúrcuma antiinflamatoria. Completo post-entreno.' },
+  { servicio: 'Wetaca', nombre: 'Cerdo agridulce con arroz jazmín', kcal: 520, p: 38, c: 56, g: 12, precio: '~6.50€', nota: 'Variedad. Buena proporción de macros. Más carbos para volumen.' },
+  { servicio: 'Wetaca', nombre: 'Bowl de atún + arroz + edamame + alga wakame', kcal: 460, p: 42, c: 46, g: 8, precio: '~7.00€', nota: 'Inspiración japonesa. Bajo en grasa, alto en proteína y yodo.' },
+  { servicio: 'Wetaca', nombre: 'Pechuga rellena de espinacas y queso fresco', kcal: 420, p: 50, c: 10, g: 16, precio: '~7.50€', nota: 'Proteína muy alta (50g). Bajo en carbos. Ideal para cena o déficit.' },
+
+  // ── Knoweats ──────────────────────────────────────────────────────────────────
+  { servicio: 'Knoweats', nombre: 'Pollo tikka masala + arroz basmati', kcal: 510, p: 45, c: 48, g: 11, precio: '~7.80€', nota: 'Diseñado para deportistas. 45g proteína verificada.' },
+  { servicio: 'Knoweats', nombre: 'Bowl de salmón teriyaki + edamame + arroz', kcal: 540, p: 42, c: 50, g: 14, precio: '~8.50€', nota: 'Omega-3 + proteína vegetal de edamame. 42g proteína total.' },
+  { servicio: 'Knoweats', nombre: 'Pasta boloñesa de ternera 100% magra', kcal: 580, p: 48, c: 60, g: 14, precio: '~7.50€', nota: 'Sin rellenos. 48g proteína animal. Para ciclos de volumen o fuerza.' },
+  { servicio: 'Knoweats', nombre: 'Curry de pollo con garbanzos y espinacas', kcal: 490, p: 44, c: 46, g: 10, precio: '~7.80€', nota: 'Proteína animal + vegetal combinadas. Rico en hierro y fibra.' },
+  { servicio: 'Knoweats', nombre: 'Ternera con patata y romero al horno', kcal: 560, p: 50, c: 46, g: 14, precio: '~8.20€', nota: '50g proteína. Creatina natural de carne. Ideal fuerza o volumen.' },
+  { servicio: 'Knoweats', nombre: 'Merluza al vapor + quinoa + brócoli', kcal: 400, p: 46, c: 34, g: 8, precio: '~8.00€', nota: 'Proteína alta de pescado blanco. Muy bajo en grasa. Déficit perfecto.' },
+
+  // ── Batch cooking casero ───────────────────────────────────────────────────────
+  { servicio: 'Casero/Batch', nombre: 'Meal prep: pollo + arroz × 5 raciones', kcal: 530, p: 50, c: 55, g: 10, precio: '~2.50€/ud', nota: '1kg pechuga + 500g arroz en 30 min. 5 tupper lista. Más barato del mercado.' },
+  { servicio: 'Casero/Batch', nombre: 'Meal prep: atún + pasta integral × 4 raciones', kcal: 480, p: 44, c: 52, g: 8, precio: '~2.00€/ud', nota: '4 latas atún + 400g pasta + tomate natural. Sin cocinar casi nada.' },
+  { servicio: 'Casero/Batch', nombre: 'Meal prep: salmón + boniato × 4 raciones', kcal: 520, p: 44, c: 48, g: 14, precio: '~3.50€/ud', nota: '700g salmón + 1kg boniato al horno. 45 min de horno, semana entera lista.' },
+  { servicio: 'Casero/Batch', nombre: 'Meal prep: lentejas guisadas × 6 raciones', kcal: 320, p: 20, c: 46, g: 5, precio: '~0.80€/ud', nota: '500g lentejas + verduras. Proteína vegetal más barata. Congela 4 raciones.' },
+  { servicio: 'Casero/Batch', nombre: 'Meal prep: tortillas de claras × 5 raciones', kcal: 220, p: 28, c: 4, g: 8, precio: '~1.20€/ud', nota: 'Bote claras Mercadona (500g) + verduras variadas. Cena rápida en déficit.' },
+  { servicio: 'Casero/Batch', nombre: 'Meal prep: bowl pollo + quinoa + verduras × 4', kcal: 490, p: 46, c: 44, g: 10, precio: '~3.20€/ud', nota: '800g pollo + 400g quinoa + verduras asadas. Domingo cooking, semana lista.' },
 ]
 
 export const MUSCULO_MAP = {
