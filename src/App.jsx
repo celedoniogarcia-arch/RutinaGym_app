@@ -5,6 +5,7 @@ import { getProfiles, upsertProfile, deleteProfile, getUserData, saveUserData, g
 import { OBJETIVOS, NIVELES, generarRecomendaciones, calcularNutricionObjetivo, normalizarMusculo } from './rulesEngine.js'
 import { supabase, getSession, onAuthStateChange, signOut } from './supabase.js'
 import { getQuoteOfDay } from './quotes.js'
+import { pushSupported, subscribePush, unsubscribePush, getSubscription } from './pushService.js'
 import AuthScreen from './AuthScreen.jsx'
 import Onboarding, { ONBOARDING_VERSION } from './Onboarding.jsx'
 
@@ -286,6 +287,11 @@ export default function App() {
   const [notifPermiso, setNotifPermiso] = useState(() =>
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   )
+  const [pushActivo, setPushActivo] = useState(false)
+  const [pushCargando, setPushCargando] = useState(false)
+  useEffect(() => {
+    getSubscription().then(s => setPushActivo(!!s))
+  }, [userId])
   // null = cargando, false = no hay sesión, objeto = sesión activa
   const [authSession, setAuthSession] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -1607,37 +1613,42 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Notificaciones */}
+                  {/* Notificaciones push */}
                   <div style={{ ...S.card, padding: 16, marginBottom: 10 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: '#1c1c1e', marginBottom: 4 }}>🔔 Recordatorios de entreno</div>
-                    <div style={{ fontSize: 12, color: '#8e8e93', marginBottom: 12 }}>
-                      {notifPermiso === 'granted'
-                        ? 'Las notificaciones están activadas. Recibirás recordatorios los días de entreno.'
-                        : notifPermiso === 'denied'
-                        ? 'Notificaciones bloqueadas. Actívalas en los ajustes del navegador.'
-                        : 'Activa las notificaciones para recibir recordatorios diarios de entreno.'}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#1c1c1e' }}>🔔 Recordatorios de entreno</div>
+                      {pushActivo && <span style={{ fontSize: 11, background: '#dcfce7', color: '#16a34a', borderRadius: 8, padding: '2px 8px', fontWeight: 700 }}>Activo</span>}
                     </div>
-                    {notifPermiso !== 'granted' && notifPermiso !== 'denied' && (
-                      <button
-                        onClick={async () => {
-                          const perm = await Notification.requestPermission()
-                          setNotifPermiso(perm)
-                          if (perm === 'granted') {
-                            new Notification('TrainClub', {
-                              body: '¡Perfecto! Te avisaremos los días de entreno.',
-                              icon: '/icon-192.png',
-                            })
-                          }
-                        }}
-                        style={{ ...S.btnPrimary('#6366f1'), borderRadius: 12, padding: '11px 16px' }}>
-                        Activar notificaciones
+                    <div style={{ fontSize: 12, color: '#8e8e93', marginBottom: 12, lineHeight: 1.5 }}>
+                      {!pushSupported()
+                        ? 'Tu navegador no soporta notificaciones push. Instala la app desde el menú del navegador.'
+                        : notifPermiso === 'denied'
+                        ? 'Notificaciones bloqueadas en el navegador. Actívalas en Ajustes → Notificaciones.'
+                        : pushActivo
+                        ? 'Recibirás un recordatorio cada día a las 8:00h aunque la app esté cerrada.'
+                        : 'Activa para recibir recordatorios diarios aunque tengas la app cerrada.'}
+                    </div>
+                    {pushSupported() && notifPermiso !== 'denied' && !pushActivo && (
+                      <button disabled={pushCargando} onClick={async () => {
+                        setPushCargando(true)
+                        const result = await subscribePush(userId)
+                        setPushCargando(false)
+                        if (result.ok) {
+                          setPushActivo(true)
+                          setNotifPermiso('granted')
+                        } else if (result.reason === 'denied') {
+                          setNotifPermiso('denied')
+                        }
+                      }} style={{ ...S.btnPrimary('#6366f1'), borderRadius: 12, padding: '11px 16px', opacity: pushCargando ? 0.6 : 1 }}>
+                        {pushCargando ? 'Activando…' : '🔔 Activar recordatorios'}
                       </button>
                     )}
-                    {notifPermiso === 'granted' && (
-                      <button
-                        onClick={() => new Notification('TrainClub', { body: `¡Hoy toca ${dia?.enfoque || 'entrenar'}! 💪`, icon: '/icon-192.png' })}
-                        style={{ padding: '10px 16px', borderRadius: 12, border: '1.5px solid #6366f1', background: '#eef2ff', color: '#6366f1', fontSize: 13, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
-                        Probar notificación ahora
+                    {pushActivo && (
+                      <button onClick={async () => {
+                        await unsubscribePush()
+                        setPushActivo(false)
+                      }} style={{ width: '100%', padding: '10px 16px', borderRadius: 12, border: '1.5px solid #e5e5ea', background: '#f5f5f7', color: '#8e8e93', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                        Desactivar recordatorios
                       </button>
                     )}
                   </div>
