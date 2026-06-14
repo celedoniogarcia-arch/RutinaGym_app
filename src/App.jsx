@@ -288,8 +288,45 @@ export default function App() {
   // null = cargando, false = no hay sesión, objeto = sesión activa
   const [authSession, setAuthSession] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [restTimer, setRestTimer] = useState(null) // { segundos, total, ejNombre }
   const saveTimer = useRef(null)
   const dietaTimer = useRef(null)
+  const restIntervalRef = useRef(null)
+
+  // ── Temporizador de descanso ─────────────────────────────────────────────
+  function iniciarDescanso(ejNombre, duracion = 90) {
+    clearInterval(restIntervalRef.current)
+    setRestTimer({ segundos: duracion, total: duracion, ejNombre })
+    restIntervalRef.current = setInterval(() => {
+      setRestTimer(prev => {
+        if (!prev) return null
+        if (prev.segundos <= 1) {
+          clearInterval(restIntervalRef.current)
+          if (navigator.vibrate) navigator.vibrate([300, 100, 300])
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)()
+            ;[0, 150, 300].forEach(delay => {
+              const osc = ctx.createOscillator()
+              const gain = ctx.createGain()
+              osc.connect(gain); gain.connect(ctx.destination)
+              osc.frequency.value = 880
+              gain.gain.setValueAtTime(0.3, ctx.currentTime + delay / 1000)
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay / 1000 + 0.3)
+              osc.start(ctx.currentTime + delay / 1000)
+              osc.stop(ctx.currentTime + delay / 1000 + 0.35)
+            })
+          } catch {}
+          return { ...prev, segundos: 0 }
+        }
+        return { ...prev, segundos: prev.segundos - 1 }
+      })
+    }, 1000)
+  }
+
+  function cancelarDescanso() {
+    clearInterval(restIntervalRef.current)
+    setRestTimer(null)
+  }
 
   // ── Auth: detectar sesión al arrancar y escuchar cambios ─────────────────
   useEffect(() => {
@@ -955,6 +992,16 @@ export default function App() {
                             valor={getValorHoy(ej.id, s)}
                             onChange={v => setValorEj(ej.id, s, v)}
                             ultimoValor={s === 1 ? ultimo : null} />
+                        ))}
+                      </div>
+
+                      {/* Botón de descanso */}
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                        {[60, 90, 120, 180].map(seg => (
+                          <button key={seg} onClick={() => iniciarDescanso(ej.nombre, seg)}
+                            style={{ flex: 1, padding: '8px 4px', borderRadius: 10, border: '1px solid #e5e5ea', background: '#f5f5f7', color: '#3c3c43', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            ⏱ {seg < 60 ? `${seg}s` : `${seg / 60}'`}{seg % 60 !== 0 ? `${seg % 60}s` : ''}
+                          </button>
                         ))}
                       </div>
 
@@ -1759,6 +1806,65 @@ export default function App() {
                   style={{ flex: 1, padding: 13, borderRadius: 12, background: '#f5f5f7', color: '#8e8e93', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
                 <button onClick={guardarActividad} disabled={!actForm.minutos}
                   style={{ flex: 2, ...S.btnPrimary('#f97316'), borderRadius: 12, opacity: actForm.minutos ? 1 : 0.4 }}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* TEMPORIZADOR DE DESCANSO */}
+      {restTimer && (() => {
+        const { segundos, total, ejNombre } = restTimer
+        const progreso = segundos / total
+        const terminado = segundos === 0
+        const radio = 70
+        const circunferencia = 2 * Math.PI * radio
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 0 }}
+            onClick={terminado ? cancelarDescanso : undefined}>
+            <div style={{ background: '#1c1c1e', borderRadius: 28, padding: '36px 28px 28px', width: 320, textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}
+              onClick={e => e.stopPropagation()}>
+
+              <div style={{ fontSize: 13, color: '#aeaeb2', marginBottom: 20, fontWeight: 500 }}>
+                {terminado ? '¡Descanso completado!' : `Descansando · ${ejNombre}`}
+              </div>
+
+              {/* Círculo SVG */}
+              <div style={{ position: 'relative', width: 180, height: 180, margin: '0 auto 24px' }}>
+                <svg width="180" height="180" viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)' }}>
+                  <circle cx="90" cy="90" r={radio} fill="none" stroke="#2c2c2e" strokeWidth="10" />
+                  <circle cx="90" cy="90" r={radio} fill="none"
+                    stroke={terminado ? '#10b981' : '#6366f1'} strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={circunferencia}
+                    strokeDashoffset={circunferencia * (1 - progreso)}
+                    style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s' }} />
+                </svg>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ fontSize: 52, fontWeight: 800, color: terminado ? '#10b981' : '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {terminado ? '✓' : `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`}
+                  </div>
+                  {!terminado && <div style={{ fontSize: 12, color: '#636366', marginTop: 4 }}>restantes</div>}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={cancelarDescanso}
+                  style={{ flex: 1, padding: '13px', borderRadius: 14, background: '#2c2c2e', color: '#aeaeb2', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 15 }}>
+                  {terminado ? 'Cerrar' : 'Saltar'}
+                </button>
+                {!terminado && (
+                  <button onClick={() => iniciarDescanso(ejNombre, total)}
+                    style={{ flex: 1, padding: '13px', borderRadius: 14, background: '#2c2c2e', color: '#aeaeb2', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 15 }}>
+                    ↺ Reiniciar
+                  </button>
+                )}
+                {terminado && (
+                  <button onClick={cancelarDescanso}
+                    style={{ flex: 2, padding: '14px', borderRadius: 14, background: '#10b981', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 15 }}>
+                    ¡A por la serie! 💪
+                  </button>
+                )}
               </div>
             </div>
           </div>
