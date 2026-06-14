@@ -6,6 +6,7 @@ import { OBJETIVOS, NIVELES, generarRecomendaciones, calcularNutricionObjetivo, 
 import { supabase, getSession, onAuthStateChange, signOut } from './supabase.js'
 import { getQuoteOfDay } from './quotes.js'
 import AuthScreen from './AuthScreen.jsx'
+import Onboarding from './Onboarding.jsx'
 
 // ─── ACTIVIDADES EXTRA ───────────────────────────────────────────────────────
 
@@ -286,6 +287,7 @@ export default function App() {
   )
   // null = cargando, false = no hay sesión, objeto = sesión activa
   const [authSession, setAuthSession] = useState(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const saveTimer = useRef(null)
   const dietaTimer = useRef(null)
 
@@ -651,6 +653,7 @@ export default function App() {
           await upsertProfile(vinculado)
         }
         setUserId(u.id); setTab('entreno')
+        if (!localStorage.getItem(`onboarding_visto_${u.id}`)) setShowOnboarding(true)
       }}
       onCreate={async u => {
         // Solo vincular al auth user si no hay ya un perfil vinculado — evita que perfiles de prueba roben el auto-login
@@ -658,6 +661,8 @@ export default function App() {
         const conAuth = (!yaVinculado && authSession?.user) ? { ...u, authUserId: authSession.user.id } : u
         setUsers(prev => [...prev, conAuth])
         await upsertProfile(conAuth)
+        setUserId(conAuth.id); setTab('entreno')
+        setShowOnboarding(true)
       }}
       onDelete={async id => {
         setUsers(prev => prev.filter(u => u.id !== id))
@@ -1740,6 +1745,14 @@ export default function App() {
           </div>
         )
       })()}
+
+      {/* ONBOARDING */}
+      {showOnboarding && (
+        <Onboarding onFinish={() => {
+          localStorage.setItem(`onboarding_visto_${userId}`, '1')
+          setShowOnboarding(false)
+        }} />
+      )}
 
       {/* NAV */}
       <div style={S.nav}>
