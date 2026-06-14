@@ -1066,23 +1066,45 @@ export default function App() {
                           </button>
                         )}
                       </div>
-                      {altOpen && alts.length > 0 && (
-                        <div style={{ background: '#f5f5f7', borderRadius: 12, overflow: 'hidden' }}>
-                          {alts.map((alt, i) => (
-                            <button key={i} onClick={() => seleccionarAlternativa(ej.id, alt)}
-                              style={{ width: '100%', padding: '12px 14px', borderBottom: i < alts.length - 1 ? '1px solid #e5e5ea' : 'none', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}>
-                              <img src={alt.gif} alt={alt.nombre} referrerPolicy="no-referrer"
-                                style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'contain', background: '#fff', flexShrink: 0 }}
-                                onError={e => { e.target.style.display = 'none' }} />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: '#1c1c1e' }}>{alt.nombre}</div>
-                                <div style={{ fontSize: 11, color: '#8e8e93', marginTop: 2 }}>{alt.musculo}</div>
-                              </div>
-                              <span style={{ fontSize: 12, color: cicloInfo.color, fontWeight: 700 }}>Usar →</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {altOpen && alts.length > 0 && (() => {
+                        const zonaActual = getZonaEjercicio(ej)
+                        const ZONA_LABEL = {
+                          alto: 'Pecho alto', medio: 'Pecho medio', bajo: 'Pecho bajo', interno: 'Pecho interno',
+                          anterior: 'Deltoides anterior', lateral: 'Deltoides lateral', posterior: 'Deltoides posterior',
+                          cabeza_larga: 'Cabeza larga', cabeza_corta: 'Cabeza corta', braquial: 'Braquial',
+                          dorsal: 'Dorsal ancho', trapecio: 'Trapecio', romboides: 'Romboides', lumbar: 'Lumbar',
+                          cuadriceps: 'Cuádriceps', isquiotibiales: 'Isquiotibiales', gluteos: 'Glúteos', gemelos: 'Gemelos',
+                          recto: 'Recto abdominal', oblicuos: 'Oblicuos', transverso: 'Transverso',
+                          flexores: 'Flexores', extensores: 'Extensores', general: 'General', cardio: 'Cardio',
+                        }
+                        return (
+                          <div style={{ background: '#f5f5f7', borderRadius: 12, overflow: 'hidden' }}>
+                            {alts.map((alt, i) => {
+                              const mismaZona = alt.zona && zonaActual && alt.zona === zonaActual
+                              return (
+                                <button key={i} onClick={() => seleccionarAlternativa(ej.id, alt)}
+                                  style={{ width: '100%', padding: '12px 14px', borderBottom: i < alts.length - 1 ? '1px solid #e5e5ea' : 'none', background: mismaZona ? '#f0fdf4' : 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}>
+                                  <img src={alt.gif} alt={alt.nombre} referrerPolicy="no-referrer"
+                                    style={{ width: 56, height: 56, borderRadius: 8, objectFit: 'contain', background: '#fff', flexShrink: 0 }}
+                                    onError={e => { e.target.style.display = 'none' }} />
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1c1c1e' }}>{alt.nombre}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, flexWrap: 'wrap' }}>
+                                      <span style={{ fontSize: 10, color: '#8e8e93' }}>{alt.musculo}</span>
+                                      {alt.zona && (
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: mismaZona ? '#10b981' : '#8e8e93', background: mismaZona ? '#dcfce7' : '#e5e5ea', padding: '1px 6px', borderRadius: 6 }}>
+                                          {mismaZona ? '✓ ' : ''}{ZONA_LABEL[alt.zona] || alt.zona}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span style={{ fontSize: 12, color: cicloInfo.color, fontWeight: 700, flexShrink: 0 }}>Usar →</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()}
                       {altOpen && alts.length === 0 && (
                         <div style={{ padding: '16px', textAlign: 'center', color: '#8e8e93', fontSize: 13 }}>
                           No hay alternativas disponibles para este músculo.
